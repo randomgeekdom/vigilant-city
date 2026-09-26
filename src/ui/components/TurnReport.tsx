@@ -42,6 +42,11 @@ export function TurnReport({ report, onDismiss }: Props) {
           </p>
         )}
         {report.consequence && <p className="loss-note">{report.consequence}</p>}
+        {report.identityEvent && (
+          <p className={report.identityEvent.kind === 'disclosed' ? 'gain' : 'loss-note'}>
+            {report.identityEvent.detail}
+          </p>
+        )}
         {report.villain && (
           <p className="muted">
             {report.villain.killed ? 'Killed' : 'Imprisoned'}: <strong>{report.villain.alias}</strong>

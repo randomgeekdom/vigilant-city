@@ -6,11 +6,31 @@ import { DISTRICT_LABELS } from '../data/districts';
 import { INCIDENT_TYPE_DEFS } from '../data/incidentTypes';
 import { ORIGIN_DEFS } from '../data/origins';
 import { POWER_SET_DEFS } from '../data/powersets';
+import { CELL_DEFS } from '../data/cells';
+import type { OrganizationData } from '../data/organizations';
+import {
+  damageTies,
+  disclose as discloseHero,
+  exposurePressure,
+  rollExposure,
+  willStandDown,
+} from './identity';
+import {
+  cellLabel,
+  courtOrganization,
+  createOrganizations,
+  driftSympathy,
+  fractureRisk,
+  ideologyModifier,
+  suppressOrganization,
+  type SympathyShift,
+} from './politics';
 import {
   SNAPSHOT_VERSION,
   type CitySnapshot,
   type CollateralResolution,
   type HeroData,
+  type IdentityEvent,
   type IncidentData,
   type ManifestationData,
   type PowerData,
@@ -37,6 +57,7 @@ interface SessionState {
   heroRoster: HeroData[];
   villains: VillainData[];
   incidents: IncidentData[];
+  organizations: OrganizationData[];
   alerts: string[];
   history: string[];
   resolvedIncidentIds: string[];
@@ -75,6 +96,7 @@ export class GameSession {
       heroRoster: [],
       villains: [],
       incidents: [],
+      organizations: [],
       alerts: [],
       history: [],
       resolvedIncidentIds: [],
@@ -85,6 +107,7 @@ export class GameSession {
     const player = session.characters.createHero(opts.realName, opts.alias, opts.powerSet, opts.origin);
     state.playerHeroId = player.id;
     state.heroRoster.push(player);
+    state.organizations = createOrganizations(rng, (p) => session.allocateId(p), rng.int(2, 3));
     session.topUpRoster();
     session.spawnIncidents(2, 3);
     return { session, snapshot: session.snapshot() };
@@ -100,6 +123,7 @@ export class GameSession {
       heroRoster: structuredClone(snap.heroes),
       villains: structuredClone(snap.villains),
       incidents: structuredClone(snap.incidents),
+      organizations: structuredClone(snap.organizations ?? []),
       alerts: snap.alerts.slice(),
       history: snap.history.slice(),
       resolvedIncidentIds: snap.resolvedIncidentIds.slice(),
@@ -188,15 +212,81 @@ export class GameSession {
     report.collateral = collateral;
 
     this.state.alerts = this.buildAlerts(report);
+    this.cullBrokenHeroes();
     this.topUpRoster();
     this.checkTerminalState();
     return report;
+  }
+
+  /**
+   * Heroes quit. Being blown, or being ground down badly enough, means a hero
+   * stops answering the phone. The player never quits — they inherit instead.
+   */
+  private cullBrokenHeroes(): void {
+    for (const hero of [...this.state.heroRoster]) {
+      if (hero.id === this.state.playerHeroId) continue;
+      if (!willStandDown(hero, this.rng)) continue;
+      this.state.heroRoster = this.state.heroRoster.filter((h) => h.id !== hero.id);
+      this.note(
+        hero.identity.exposed && !hero.identity.disclosed
+          ? `${hero.alias} quit. There is no version of this where they can go back to being ${hero.realName}.`
+          : `${hero.alias} quit. Nobody is holding them together any more.`,
+      );
+    }
   }
 
   /** The prototype's "Patrol": put fresh work on the board. */
   patrol(): void {
     if (this.state.over) return;
     this.spawnIncidents(1, 2);
+  }
+
+  // ---------- metapolitics and identity (player actions) ----------
+
+  get organizations(): readonly OrganizationData[] {
+    return this.state.organizations;
+  }
+
+  /**
+   * Take the mask off on purpose. Costs reputation now, buys legitimacy forever,
+   * and retires the whole secrecy problem for this hero.
+   */
+  disclose(heroId: string): string {
+    const hero = this.requireHero(heroId);
+    const event = discloseHero(hero);
+    this.note(event.detail);
+    return event.detail;
+  }
+
+  courtOrganization(orgId: string, heroId: string): string {
+    const org = this.requireOrganization(orgId);
+    const hero = this.requireHero(heroId);
+    const shift = courtOrganization(org, hero, this.rng);
+    const verb = org.ideology === hero.politics.leaning ? 'listened' : 'ignored';
+    this.note(
+      `${hero.alias} ${verb} to ${org.name}. ${CELL_DEFS[org.ideology].label} favour ` +
+        `${shift ? (shift.delta > 0 ? 'rose' : 'fell') : 'held'}.`,
+    );
+    return shift ? `${cellLabel(hero.politics.leaning)} sympathy ${shift.delta > 0 ? '+' : ''}${shift.delta}.` : 'Nothing moved.';
+  }
+
+  suppressOrganization(orgId: string): string {
+    const org = this.requireOrganization(orgId);
+    const line = suppressOrganization(org, this.rng);
+    this.note(line);
+    return line;
+  }
+
+  private requireHero(heroId: string): HeroData {
+    const hero = this.state.heroRoster.find((h) => h.id === heroId);
+    if (!hero) throw new Error(`no hero ${heroId}`);
+    return hero;
+  }
+
+  private requireOrganization(orgId: string): OrganizationData {
+    const org = this.state.organizations.find((o) => o.id === orgId);
+    if (!org) throw new Error(`no organisation ${orgId}`);
+    return org;
   }
 
   // ---------- resolution ----------
@@ -208,8 +298,13 @@ export class GameSession {
   ): ResolutionReport {
     const target = difficultyRoll(incident.difficulty);
     const known = this.findManifestation(hero, incident, approaches);
+    const usedLethal = approaches.includes('lethal');
 
     let modifier = incident.approachModifiers[approaches[0]!] + incident.approachModifiers[approaches[1]!];
+    // Ideology warps the job: a sympathetic organisation on the scene helps,
+    // an opposed one gets in the way but is easier to simply hit.
+    modifier += ideologyModifier(this.state.organizations, hero, approaches[0]!);
+    modifier += ideologyModifier(this.state.organizations, hero, approaches[1]!);
     let levelled = false;
 
     if (known) {
@@ -237,10 +332,11 @@ export class GameSession {
     let consequence: string | null = null;
     let died = false;
     let villain: ResolutionReport['villain'] = null;
+    let identityEvent: IdentityEvent | null = null;
 
     if (resolved) {
       const defeated = this.surfaceVillain();
-      const killed = approaches.includes('lethal');
+      const killed = usedLethal;
       defeated.status = killed ? 'dead' : 'imprisoned';
       villain = { alias: defeated.alias, killed };
       this.note(
@@ -251,6 +347,19 @@ export class GameSession {
       const result = this.applySevereConsequence(hero);
       consequence = result.message;
       died = result.died;
+    }
+
+    // Being seen is the price of the work. Lethal work is seen more than anything.
+    const pressure = exposurePressure({ usedLethal, resolved, difficulty: incident.difficulty, secrecy: hero.identity.secrecy });
+    if (!died) {
+      identityEvent = rollExposure(hero, pressure, this.rng);
+      if (identityEvent) this.note(identityEvent.detail);
+      // Cells notice which of their people you keep putting in the grinder.
+      this.driftPolitics(hero, resolved, usedLethal);
+      if (this.rng.chance(0.08)) {
+        const tie = damageTies(hero, this.rng);
+        this.note(tie.detail);
+      }
     }
 
     return {
@@ -269,7 +378,26 @@ export class GameSession {
       died,
       villain,
       collateral: [],
+      identityEvent,
     };
+  }
+
+  /**
+   * Cells recruit through conduct. A hero kept on jobs their cell approves of
+   * drifts toward it; one used as a blunt instrument drifts away.
+   */
+  private driftPolitics(hero: HeroData, resolved: boolean, usedLethal: boolean): void {
+    const shifts: SympathyShift[] = [];
+    const approves = hero.politics.leaning === 'choir' ? !usedLethal : hero.politics.leaning === 'registry' ? !usedLethal : usedLethal;
+    const delta = (resolved ? 1 : -1) * (approves ? 4 : -3);
+    driftSympathy(hero, delta, 'drift', shifts);
+    for (const s of shifts) {
+      if (Math.abs(s.delta) >= 4) this.note(`${hero.alias} is drifting ${s.delta > 0 ? 'toward' : 'away from'} their politics.`);
+    }
+    if (fractureRisk(hero, this.rng)) {
+      hero.morale -= 10;
+      this.note(`${hero.alias} has stopped speaking for ${cellLabel(hero.politics.leaning)}.`);
+    }
   }
 
   private findManifestation(
@@ -455,6 +583,7 @@ export class GameSession {
       heroes: structuredClone(this.state.heroRoster),
       villains: structuredClone(this.state.villains),
       incidents: structuredClone(this.state.incidents),
+      organizations: structuredClone(this.state.organizations),
       alerts: this.state.alerts.slice(),
       history: this.state.history.slice(),
       resolvedIncidentIds: this.state.resolvedIncidentIds.slice(),

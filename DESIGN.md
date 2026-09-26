@@ -157,72 +157,82 @@ Kidnapping · Murder · Rampage · Robbery · Hostage Situation
 Incidents spawn across districts and keep ticking until resolved. Alerts and a History log narrate
 everything that happened, in prose.
 
-## 8. Metapolitics — both layers **[NEW — needs sign-off]**
+## 8. Metapolitics — both layers **[implemented]**
 
-This is the game's deepest well and it does not exist in the prototype yet. It builds directly on
+This is the game's deepest well and it did not exist in the prototype. It builds directly on
 `PowerOrigin`, which is already the fault line.
 
 ### 8.1 Internal: ideological fault lines within your roster
 
 Origin determines a hero's **leaning**, and therefore which **cell** they are sympathetic to:
 
-| Origin | Sees | Leans toward |
-|---|---|---|
-| Alien | outsiders, and the danger of being one | *Exiles* — heroes who are not from here |
-| Genetic | the next generation, inheritance | *Ascendants* — born-this-way, born-first |
-| Supernatural | the sacred, the old bargains | *Choir* — the divine/demonic made manifest |
-| Technological | the rational, the accountable | *Registry* — law, procedure, transparency |
+| Origin | Cell | Sees | Creed |
+|---|---|---|---|
+| Alien | **The Exiles** | outsiders, and the danger of being one | Nobody from here belongs. Protect the stranger, even when it costs you. |
+| Genetic | **The Ascendants** | the next generation, inheritance | The next generation is owed the city. We are that generation. |
+| Supernatural | **The Choir** | the sacred, the old bargains | The old bargains still hold. The divine does not renegotiate. |
+| Technological | **The Registry** | the rational, the accountable | Powers must be accounted for. The public deserves a list. |
 
-Mechanics to build:
-- Cells **recruit from your roster**. A hero's sympathy drifts with morale, reputation, and how you
-  spend them.
-- **Cell favour** per hero, shown openly. A heavily-recruited hero becomes a liability, not an asset.
-- **Internal fracture**: if a cell's sympathy crosses a threshold inside your roster, it can split —
-  a schism event, heroes leaving, a walkout, or a cell-backed hero working against an incident.
-- Origin diversity in the roster is therefore a *political* stat, not just a tactical one.
+A hero cannot choose their politics — it is derived from their power. What they *do* about it is
+the player's problem. Sympathy (−100…+100) drifts with conduct:
+
+- Being used on jobs your cell approves of pulls them toward it.
+- Being used as a blunt instrument pushes them away. The Choir and the Registry both disapprove of
+  lethal work; the Exiles and the Ascendants are more comfortable with it.
+- At −50 and below a hero stops speaking for their cell (a **fracture**), and morale suffers.
+
+So origin diversity in the roster is a *political* stat, not just a tactical one, and the way you
+spend people is a political act whether you meant it or not.
 
 ### 8.2 External: rival organisations
 
-Named organisations, each with an ideology, a roster, and an agenda that escalates over time. They
-compete for the same incidents, and their presence changes the modifiers on those incidents (an
-*Ascendant*-aligned incident is much harder for a *Choir* hero).
+Named organisations, each with an ideology, an agenda, a power rating and a standing with you. They
+compete for the same incidents, and their presence **warps the approach modifiers on open incidents**:
 
-Options to build: court them, infiltrate them, feed them false incidents, absorb a defector, suppress
-them. And when your cells and an external org share an ideology, so do its heroes start defecting to
-yours — and vice versa.
+- An organisation sharing your hero's politics helps on Diplomatic and Tactical work.
+- An opposed one obstructs Diplomacy but is easier to simply hit.
+
+Player verbs: **court** (send a sympathetic hero to hear them out, moving sympathy and their
+standing) and **suppress** (knock their power down, at the cost of standing). Suppression can finish
+an organisation outright.
 
 > Your original `TODO.txt` already said *"Add Organizations"*. This is that item.
 
-## 9. Secret identity — modelled properly **[NEW — needs sign-off]**
+## 9. Secret identity — modelled properly **[implemented]**
 
-You have chosen to model this as a real system, not flavour. The Clark Kent problem as mechanics.
+The Clark Kent problem as mechanics. Every hero has a civilian life that resolution puts at risk:
+a job, and specific people who were relying on that hero being someone else.
 
-Every hero has a **civilian life** that is not optional:
-- `civilianJob` — something to go back to (nurse, teacher, mechanic, night-shift security…)
-- `civilianTies` — people who would notice. A partner, a child, a patient list, a team.
-- `secrecy` — 0–100. How well the mask is holding.
+**Exposure pressure** — how much attention a night attracted:
+- Lethal approach: 45. Violent work is witnessed.
+- Failure: 30. Nobody is holding the pose together.
+- Difficulty Easy→Backbreaking: 8 / 15 / 25 / 35.
 
-**Exposure** happens when: fame spikes, an incident is caught on camera, a civilian is harmed during a
-response, a rival org leaks you, or a hero is drunk and memorable at a party.
+That pressure is scaled by how thin the mask already was (`(100 − secrecy) / 100`), so a hero who has
+been lucky repeatedly is one bad night from being caught. On a miss, secrecy erodes. On a hit, the
+hero is **exposed**: the job is gone, reputation drops, morale collapses.
 
-**What exposure costs** — this is the part that matters:
-- The hero loses their job and their cover.
-- Civilian ties are at risk, permanently.
-- Trust damage, and the affected hero's morale collapses.
-- **Some heroes will not take the risk** and will stand down or leave the roster. That is a real cost
-  the player must weigh.
+**Civilian ties** take damage independently of the cover, and at 100 the civilian life is destroyed.
 
-A hero who *discloses* deliberately — a public coming-out, a mask-off press conference — gets a
-different, harsher path: a large one-off trust hit, then a permanent legitimacy bonus. It is a
-legitimate strategy and it should be reachable.
+**Some heroes quit.** An exposed hero (or one at morale ≤ −30) may stand down permanently, and the
+roster loses them. That is a real cost the player weighs when choosing how much to lean on anyone.
 
-## 10. Win / loss **[NEW — needs sign-off]**
+**Disclosure** — going public deliberately — is a legitimate counter-strategy: a large one-off
+reputation hit and a civilian reset, then **permanent legitimacy**. A disclosed hero can never be
+blown. Take the mask off on purpose and you are safe, and somewhat distrusted, forever.
 
-Currently unmodelled. Candidates:
-- **You** die with no heir → run ends.
-- Reputation floor across the roster → the city stops fielding you.
-- Survive N incidents → escalating difficulty, endless.
-- Push a specific villain to a specific end.
+## 10. Win / loss — **partially unmodelled**
+
+Implemented: the run ends when no hero remains at all (your hero died with no one left to inherit).
+
+Still unmodelled and worth a decision:
+- Reputation floor across the roster — the city stops fielding you.
+- A pressure clock. **The playtest found a real problem:** across 200 seeds, 0 runs ever ended, and
+  the board drained to empty (mean open incidents at the turn cap: 0.00). Incidents expire faster
+  than the city produces them, so there is no escalating difficulty and no reason to feel behind.
+  Right now "Patrol" is a manual button, which makes the game a placid sequence of clean-ups.
+  Something needs to make the city worse over time. Not designed yet.
+- A specific villain to a specific end.
 
 ## 11. Tech
 
@@ -234,6 +244,11 @@ The engine under `src/engine/` is pure TypeScript with **no DOM imports** — it
 serialises into the save, so a restored run continues a byte-identical stream.
 
 Save data: Electron `userData/saves/autosave.json`.
+
+**Bundle note:** Rollbard's name corpora dominate the JS bundle (~570 kB raw / ~208 kB gzipped). This
+is a local Electron app loaded from disk, so there is no network round-trip to amortise and code
+splitting would only add chunk-loading complexity for no benefit. The warning limit is raised rather
+than the problem papered over.
 
 > **Note on the v0.1 port:** the director/agency/team-deployment design and its 18 events have been
 > **deleted**. They were written against a design that does not exist. The infrastructure (RNG, snapshot

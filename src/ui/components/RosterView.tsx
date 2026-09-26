@@ -3,13 +3,15 @@ import { ORIGIN_DEFS } from '../../engine/data/origins';
 import { POWER_SET_DEFS } from '../../engine/data/powersets';
 import { APPROACH_DEFS } from '../../engine/data/approaches';
 import { DIFFICULTY_DEFS } from '../../engine/data/difficulty';
+import { CELL_DEFS } from '../../engine/data/cells';
 import type { HeroData } from '../../engine/core/types';
 
 interface Props {
   session: GameSession;
+  onDisclose: (heroId: string) => void;
 }
 
-export function RosterView({ session }: Props) {
+export function RosterView({ session, onDisclose }: Props) {
   const playerId = session.playerHero?.id;
   return (
     <div className="panel">
@@ -20,14 +22,22 @@ export function RosterView({ session }: Props) {
       </p>
       <div className="hero-list">
         {session.allHeroes.map((hero) => (
-          <HeroCard key={hero.id} hero={hero} isPlayer={hero.id === playerId} />
+          <HeroCard key={hero.id} hero={hero} isPlayer={hero.id === playerId} onDisclose={onDisclose} />
         ))}
       </div>
     </div>
   );
 }
 
-function HeroCard({ hero, isPlayer }: { hero: HeroData; isPlayer: boolean }) {
+function HeroCard({
+  hero,
+  isPlayer,
+  onDisclose,
+}: {
+  hero: HeroData;
+  isPlayer: boolean;
+  onDisclose: (heroId: string) => void;
+}) {
   const secrecy = hero.identity.exposed ? 0 : hero.identity.secrecy;
   return (
     <div className={`hero-card${isPlayer ? ' player' : ''}`}>
@@ -70,6 +80,8 @@ function HeroCard({ hero, isPlayer }: { hero: HeroData; isPlayer: boolean }) {
         <div className={hero.identity.exposed ? 'exposed' : ''}>
           {hero.identity.exposed ? (
             <strong>Exposed. Cover gone.</strong>
+          ) : hero.identity.disclosed ? (
+            <strong>Public by choice. {hero.realName} is a known quantity.</strong>
           ) : (
             <>
               {hero.identity.civilianJob} &middot; {hero.identity.civilianTies.join('; ')}
@@ -83,6 +95,28 @@ function HeroCard({ hero, isPlayer }: { hero: HeroData; isPlayer: boolean }) {
           </div>
           <span>{secrecy}</span>
         </div>
+        {hero.identity.tieDamage > 0 && (
+          <div className="muted small warn">Ties damaged: {hero.identity.tieDamage}%</div>
+        )}
+        <div className="hero-actions">
+          {!hero.identity.exposed && !hero.identity.disclosed && (
+            <button onClick={() => onDisclose(hero.id)} type="button" title="Take the mask off on purpose. Costs reputation now, buys legitimacy forever.">
+              Go public
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="hero-politics">
+        <div className="label">Politics</div>
+        <div className="pol-row">
+          <span>{CELL_DEFS[hero.politics.leaning].label}</span>
+          <span className={`sym ${hero.politics.sympathy >= 0 ? 'pos' : 'neg'}`}>
+            {hero.politics.sympathy >= 0 ? '+' : ''}
+            {hero.politics.sympathy}
+          </span>
+        </div>
+        <div className="muted small">{CELL_DEFS[hero.politics.leaning].creed}</div>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { DIFFICULTY_LEVELS, DIFFICULTY_DEFS, type DifficultyLevel } from '../dat
 import { DISTRICT_LABELS, DISTRICTS } from '../data/districts';
 import { INCIDENT_TYPE_DEFS, INCIDENT_TYPES } from '../data/incidentTypes';
 import { rollAnyCivilianName, rollVillainName } from '../data/rollbard';
+import { cellForOrigin } from '../data/cells';
 import type {
   HeroData,
   IncidentData,
@@ -60,6 +61,8 @@ export class CharacterFactory {
       civilianTies: [rng.pick(CIVILIAN_TIES)],
       secrecy: rng.int(55, 85),
       exposed: false,
+      disclosed: false,
+      tieDamage: 0,
     };
   }
 
@@ -72,7 +75,9 @@ export class CharacterFactory {
       powers: [{ powerSet, origin }],
       manifestations: [],
       reputation: 0,
+      morale: 0,
       identity: this.createIdentity(),
+      politics: { leaning: cellForOrigin(origin), sympathy: 0 },
     };
   }
 

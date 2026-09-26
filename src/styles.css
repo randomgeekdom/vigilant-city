@@ -603,6 +603,137 @@ input:focus {
   background: var(--good);
 }
 
+/* ---------- politics ---------- */
+
+.cell-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 9px;
+  margin-bottom: 8px;
+}
+.cell {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+.cell-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.sym {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.sym.pos {
+  color: var(--good);
+}
+.sym.neg {
+  color: var(--bad);
+}
+.creed {
+  font-style: italic;
+  color: var(--muted);
+  margin: 0;
+  font-size: 12.5px;
+}
+.members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.member {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+.member.you {
+  border-color: var(--accent);
+}
+.member em {
+  color: var(--muted);
+  font-style: normal;
+  margin-left: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.org-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 9px;
+  margin-top: 10px;
+}
+.org {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 12px;
+  display: grid;
+  gap: 7px;
+}
+.org-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.agenda {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.org-stats {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.org-stats strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.org-stats strong.pos {
+  color: var(--good);
+}
+.org-stats strong.neg {
+  color: var(--bad);
+}
+.org-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.org-actions button {
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+.hero-politics {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  font-size: 12.5px;
+}
+.pol-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 3px;
+}
+.hero-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.hero-actions button {
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
 /* ---------- prison ---------- */
 
 .villain-list {

@@ -11,13 +11,15 @@ import { NewGame } from './ui/components/NewGame';
 import { RosterView } from './ui/components/RosterView';
 import { CityView } from './ui/components/CityView';
 import { PrisonView } from './ui/components/PrisonView';
+import { PoliticsView } from './ui/components/PoliticsView';
 import { GameOver } from './ui/components/GameOver';
 
-type TabKey = 'city' | 'roster' | 'prison';
+type TabKey = 'city' | 'roster' | 'politics' | 'prison';
 
 const TABS: readonly { key: TabKey; label: string }[] = [
   { key: 'city', label: 'City' },
   { key: 'roster', label: 'Heroes' },
+  { key: 'politics', label: 'Politics' },
   { key: 'prison', label: 'Prison' },
 ];
 
@@ -145,7 +147,16 @@ export function App() {
           {tab === 'city' && (
             <CityView session={s} onResolve={resolve} onPatrol={() => commit(() => s.patrol())} />
           )}
-          {tab === 'roster' && <RosterView session={s} />}
+          {tab === 'roster' && (
+            <RosterView session={s} onDisclose={(id) => commit(() => s.disclose(id))} />
+          )}
+          {tab === 'politics' && (
+            <PoliticsView
+              session={s}
+              onCourt={(orgId, heroId) => commit(() => s.courtOrganization(orgId, heroId))}
+              onSuppress={(orgId) => commit(() => s.suppressOrganization(orgId))}
+            />
+          )}
           {tab === 'prison' && <PrisonView session={s} />}
         </div>
       </main>
