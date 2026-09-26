@@ -1,76 +1,121 @@
 import { useState } from 'react';
+import { makeAlias, POWER_SETS, POWER_SET_DEFS, type PowerSet } from '../../engine/data/powersets';
+import { POWER_ORIGINS, ORIGIN_DEFS, type PowerOrigin } from '../../engine/data/origins';
+import { Random } from '../../engine/core/Random';
 
 interface Props {
-  onStart: (opts: {
-    seed: number;
-    agencyName: string;
-    cityName: string;
-    directorName: string;
-    rosterSize: number;
-  }) => void;
+  onStart: (opts: { realName: string; alias: string; powerSet: PowerSet; origin: PowerOrigin }) => void;
   onLoad: () => void;
+  hasSave: boolean;
 }
 
-export function NewGame({ onStart, onLoad }: Props) {
-  const [agencyName, setAgencyName] = useState('');
-  const [cityName, setCityName] = useState('');
-  const [directorName, setDirectorName] = useState('');
-  const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1e9));
-  const [rosterSize, setRosterSize] = useState(4);
+export function NewGame({ onStart, onLoad, hasSave }: Props) {
+  const [realName, setRealName] = useState('');
+  const [alias, setAlias] = useState('');
+  const [powerSet, setPowerSet] = useState<PowerSet>('Flight');
+  const [origin, setOrigin] = useState<PowerOrigin>('genetic');
+  const [touched, setTouched] = useState(false);
+
+  const suggest = () => {
+    const rng = new Random(Date.now() & 0x7fffffff);
+    setAlias(makeAlias(powerSet, realName, (a) => rng.pick(a)));
+  };
+
+  const start = () => {
+    setTouched(true);
+    if (!realName.trim() || !alias.trim()) return;
+    onStart({ realName: realName.trim(), alias: alias.trim(), powerSet, origin });
+  };
 
   return (
-    <div className="newgame">
-      <div className="newgame-card">
+    <div className="start">
+      <div className="start-inner">
         <h1>Vigilant City</h1>
-        <p className="tagline">
-          You do not fight. You have a roster, a budget, a city that is frightened of you, and eleven months
-          until the budget review. Decide what to send where, and who to believe.
+        <p className="premise">
+          When <strong>Athena</strong> fell &mdash; felled by a devastating foe, the heavens crying as she
+          tumbled &mdash; the city was given no time to mourn. The city needed a new guardian, and it
+          needed one fast.
+        </p>
+        <p className="premise">
+          The city has chosen <em>you</em>. What you were before, and what you are capable of, is
+          yours to decide.
         </p>
 
-        <label>
-          Agency
+        <div className="field">
+          <label htmlFor="real">Real name</label>
           <input
-            value={agencyName}
-            placeholder="leave blank to generate"
-            onChange={(e) => setAgencyName(e.target.value)}
+            id="real"
+            value={realName}
+            placeholder="e.g. Nora Ellery"
+            onChange={(e) => {
+              setRealName(e.target.value);
+              setTouched(false);
+            }}
           />
-        </label>
-        <label>
-          City
-          <input
-            value={cityName}
-            placeholder="leave blank to generate"
-            onChange={(e) => setCityName(e.target.value)}
-          />
-        </label>
-        <label>
-          Director
-          <input
-            value={directorName}
-            placeholder="leave blank to generate"
-            onChange={(e) => setDirectorName(e.target.value)}
-          />
-        </label>
-        <label>
-          Roster size
-          <input
-            type="number"
-            min={2}
-            max={6}
-            value={rosterSize}
-            onChange={(e) => setRosterSize(Math.max(2, Math.min(6, Number(e.target.value) || 2)))}
-          />
-        </label>
-        <label>
-          Seed
-          <input type="number" value={seed} onChange={(e) => setSeed(Number(e.target.value) || 1)} />
-        </label>
+          {touched && !realName.trim() && <span className="err">Required.</span>}
+        </div>
 
-        <div className="newgame-actions">
-          <button className="primary" onClick={() => onStart({ seed, agencyName, cityName, directorName, rosterSize })}>
-            Begin
+        <div className="field">
+          <label htmlFor="alias">Alias</label>
+          <div className="row">
+            <input
+              id="alias"
+              value={alias}
+              placeholder="e.g. Iron Woman"
+              onChange={(e) => {
+                setAlias(e.target.value);
+                setTouched(false);
+              }}
+            />
+            <button onClick={suggest} type="button">
+              Suggest
+            </button>
+          </div>
+          {touched && !alias.trim() && <span className="err">Required.</span>}
+        </div>
+
+        <div className="field">
+          <label>Power</label>
+          <div className="grid-powers">
+            {POWER_SETS.map((p) => (
+              <button
+                key={p}
+                className={powerSet === p ? 'chip sel' : 'chip'}
+                onClick={() => setPowerSet(p)}
+                type="button"
+              >
+                {POWER_SET_DEFS[p].displayName}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="field">
+          <label>Origin</label>
+          <div className="grid-origins">
+            {POWER_ORIGINS.map((o) => (
+              <button
+                key={o}
+                className={origin === o ? 'origin sel' : 'origin'}
+                onClick={() => setOrigin(o)}
+                type="button"
+              >
+                <strong>{ORIGIN_DEFS[o].label}</strong>
+                <span>{ORIGIN_DEFS[o].blurb}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="start-actions">
+          <button className="primary" onClick={start} type="button">
+            Become the guardian
           </button>
-          <button onClick={onLoad}>Continue saved run</button>
+          {hasSave && (
+            <button onClick={onLoad} type="button">
+              Continue saved run
+            </button>
+          )}
         </div>
       </div>
     </div>

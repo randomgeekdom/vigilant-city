@@ -1,114 +1,105 @@
-export type HeroStatus = 'active' | 'injured' | 'retired' | 'lost';
-export type SecretKind = 'payroll' | 'substance' | 'informant' | 'faction' | 'imposter';
-export type DistrictKind = 'financial' | 'industrial' | 'residential' | 'docks' | 'civic';
-export type IncidentKind = 'crime' | 'disaster' | 'public' | 'supervillain' | 'mundane';
-export type LogKind = 'turn' | 'hero' | 'city' | 'crisis' | 'press' | 'good' | 'bad' | 'secret';
+import type { Approach } from '../data/approaches';
+import type { DifficultyLevel } from '../data/difficulty';
+import type { District } from '../data/districts';
+import type { IncidentType } from '../data/incidentTypes';
+import type { PowerOrigin } from '../data/origins';
+import type { PowerSet } from '../data/powersets';
 
-export const DISTRICT_KINDS: readonly DistrictKind[] = [
-  'financial',
-  'industrial',
-  'residential',
-  'docks',
-  'civic',
-];
-
-export const INCIDENT_KINDS: readonly IncidentKind[] = [
-  'crime',
-  'disaster',
-  'public',
-  'supervillain',
-  'mundane',
-];
-
-export interface HeroData {
-  id: string;
-  name: string;
-  callsign: string;
-  archetype: string;
-  age: number;
-  condition: number;
-  morale: number;
-  fame: number;
-  quirks: string[];
-  status: HeroStatus;
-  secret: SecretKind | null;
-  secretPressure: number;
-  missions: number;
-  deployedTo: string | null;
+export interface PowerData {
+  powerSet: PowerSet;
+  origin: PowerOrigin;
 }
 
-export interface DistrictData {
-  id: string;
+export interface ManifestationData {
   name: string;
-  kind: DistrictKind;
-  population: number;
-  unrest: number;
-  security: number;
+  approach: Approach;
+  origin: PowerOrigin;
+  powerSet: PowerSet;
+  difficulty: DifficultyLevel;
+}
+
+export type VillainStatus = 'active' | 'imprisoned' | 'dead';
+
+export type VillainData = CharacterData & { status: VillainStatus };
+
+export interface CharacterData {
+  id: string;
+  realName: string;
+  alias: string;
+  powerLevel: number;
+  powers: PowerData[];
+  manifestations: ManifestationData[];
+}
+
+/** The Clark Kent problem, as mechanics. */
+export interface SecretIdentityData {
+  civilianJob: string;
+  civilianTies: string[];
+  /** 0 = fully exposed, 100 = mask is solid. */
+  secrecy: number;
+  exposed: boolean;
+}
+
+export interface HeroData extends CharacterData {
+  reputation: number;
+  identity: SecretIdentityData;
 }
 
 export interface IncidentData {
   id: string;
-  kind: IncidentKind;
-  districtId: string;
-  severity: number;
-  turnsLeft: number;
-  resolved: boolean;
-  outcome: 'good' | 'bad' | '';
-  resolution: string;
+  type: IncidentType;
+  description: string;
+  district: District;
+  timeToResolve: number;
+  difficulty: DifficultyLevel;
+  approachModifiers: Record<Approach, number>;
 }
 
-export interface Resources {
-  funding: number;
-  trust: number;
-  intel: number;
-}
-
-export interface PendingChoice {
-  label: string;
-  hint: string;
-  enabled: boolean;
-  disabledReason: string;
-}
-
-export interface PendingEvent {
-  id: string;
-  title: string;
-  text: string;
-  choices: PendingChoice[];
-}
-
-export interface Stats {
-  incidentsHandled: number;
-  incidentsFailed: number;
-  heroesLost: number;
-  scandals: number;
-}
-
-export interface GameSnapshot {
+export interface CitySnapshot {
   version: number;
   seed: number;
   rngState: number;
+  /** Monotonic, snapshotted so ids stay unique and deterministic across loads. */
+  idCounter: number;
   turn: number;
-  month: number;
-  year: number;
-  agencyName: string;
-  cityName: string;
-  directorName: string;
-  resources: Resources;
+  playerHeroId: string;
   heroes: HeroData[];
-  districts: DistrictData[];
+  villains: VillainData[];
   incidents: IncidentData[];
-  chronicle: { turn: number; kind: string; text: string }[];
-  flags: Record<string, number>;
-  stats: Stats;
-  pending: PendingEvent | null;
+  alerts: string[];
+  history: string[];
+  resolvedIncidentIds: string[];
+  over: boolean;
+  overReason: string | null;
 }
 
-export const SNAPSHOT_VERSION = 1;
+export interface ResolutionReport {
+  incidentId: string;
+  incidentType: IncidentType;
+  district: District;
+  actorHeroId: string;
+  approaches: [Approach, Approach];
+  modifier: number;
+  roll: number;
+  target: number;
+  resolved: boolean;
+  levelled: boolean;
+  reputationDelta: number;
+  consequence: string | null;
+  died: boolean;
+  villain: { alias: string; killed: boolean } | null;
+  collateral: CollateralResolution[];
+}
 
-export const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-] as const;
+export interface CollateralResolution {
+  incidentId: string;
+  incidentType: IncidentType;
+  district: District;
+  heroId: string | null;
+  resolved: boolean;
+  roll: number;
+  target: number;
+  consequence: string | null;
+}
 
-export const MONTHS_PRETTY = MONTHS.map((m) => m.slice(0, 3));
+export const SNAPSHOT_VERSION = 2;

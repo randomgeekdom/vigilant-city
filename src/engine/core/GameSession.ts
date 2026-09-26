@@ -1,604 +1,467 @@
 import { Random } from './Random';
-import { Chronicle, makeHero } from './HeroFactory';
-import type { Archetype } from './HeroFactory';
-import { EventRegistry, type SessionApi } from './EventSystem';
-import { ALL_EVENTS } from '../events';
-import { rollAgencyName, rollCityName, rollCivilianName } from '../data/rollbard';
+import { CharacterFactory, IncidentFactory } from './CharacterFactory';
+import { APPROACHES, type Approach } from '../data/approaches';
+import { difficultyModifier, difficultyRoll } from '../data/difficulty';
+import { DISTRICT_LABELS } from '../data/districts';
+import { INCIDENT_TYPE_DEFS } from '../data/incidentTypes';
+import { ORIGIN_DEFS } from '../data/origins';
+import { POWER_SET_DEFS } from '../data/powersets';
 import {
   SNAPSHOT_VERSION,
-  MONTHS,
-  DISTRICT_KINDS,
-  INCIDENT_KINDS,
-  type DistrictData,
-  type GameSnapshot,
+  type CitySnapshot,
+  type CollateralResolution,
   type HeroData,
   type IncidentData,
-  type IncidentKind,
-  type LogKind,
-  type PendingEvent,
-  type Resources,
-  type SecretKind,
-  type Stats,
+  type ManifestationData,
+  type PowerData,
+  type ResolutionReport,
+  type VillainData,
 } from './types';
 
-const RESOURCE_BOUNDS = {
-  funding: [0, 500],
-  trust: [0, 100],
-  intel: [0, 100],
-} as const satisfies Record<keyof Resources, readonly [number, number]>;
-
-const DISTRICT_PREFIX = [
-  'Old', 'New', 'Lower', 'Upper', 'North', 'South', 'Iron', 'Salt', 'Black', 'Saint', 'Little', 'Great',
-] as const;
-
-const INCIDENT_TITLES: Record<IncidentKind, readonly string[]> = {
-  crime: ['Armed robbery', 'Warehouse fire, suspicious origin', 'Shakedown on the docks', 'Armoured car job', 'Warehouse arson'],
-  disaster: ['Chemical spill', 'Structural failure', 'Subway derailment', 'Gas main rupture', 'Bridge collapse'],
-  public: ['Crowd surge at a rally', 'Hospital overload', 'Stampede outside a venue', 'Heatwave emergency', 'Blackout downtown'],
-  supervillain: ['Costumed nuisance', 'Aerial threat over the docks', 'Rooftop pursuit', 'Sabotage at a substation', 'Bank siege'],
-  mundane: ['Traffic pile-up', 'Lost child', 'Cat in a substation', 'Elevator entrapment', 'Flooded underpass'],
-};
-
-const ARCHETYPE_ADVANTAGE: Record<IncidentKind, readonly Archetype[]> = {
-  crime: ['blade', 'speedster'],
-  disaster: ['brute', 'tech'],
-  public: ['mystic', 'psy'],
-  supervillain: ['brute', 'blade'],
-  mundane: ['speedster', 'tech'],
-};
-
-const SECRET_LABEL: Record<SecretKind, string> = {
-  payroll: 'double paycheque',
-  substance: 'substance problem',
-  informant: 'history as an informant',
-  faction: 'membership in a metapolitical cell',
-  imposter: 'powers that are not entirely theirs',
-};
-
 export interface NewGameOptions {
-  seed: number;
-  agencyName: string;
-  cityName: string;
-  directorName: string;
-  rosterSize: number;
+  realName: string;
+  alias: string;
+  powerSet: import('../data/powersets').PowerSet;
+  origin: import('../data/origins').PowerOrigin;
+  seed?: number;
 }
 
-export class GameSession implements SessionApi {
-  readonly rng: Random;
-  private readonly events: EventRegistry;
-  private readonly chronicle: Chronicle;
-  private snap: GameSnapshot;
+export interface NewGameResult {
+  session: GameSession;
+  snapshot: CitySnapshot;
+}
 
-  private constructor(snap: GameSnapshot) {
-    this.snap = snap;
-    this.rng = new Random(snap.seed);
-    this.rng.state = snap.rngState;
-    this.events = new EventRegistry(ALL_EVENTS);
-    this.chronicle = new Chronicle(snap.chronicle);
+interface SessionState {
+  turn: number;
+  playerHeroId: string;
+  heroRoster: HeroData[];
+  villains: VillainData[];
+  incidents: IncidentData[];
+  alerts: string[];
+  history: string[];
+  resolvedIncidentIds: string[];
+  over: boolean;
+  overReason: string | null;
+}
+
+const HISTORY_LIMIT = 200;
+
+/**
+ * The whole game in one rule: you resolve exactly one incident per turn, and
+ * resolving it ticks every other open incident's timer down by one. So every
+ * personal action is also a step of the clock for everything you did not
+ * choose. Nothing is free.
+ */
+export class GameSession {
+  private readonly rng: Random;
+  private readonly state: SessionState;
+  private readonly seedValue: number;
+  private idCounter: number;
+
+  private constructor(state: SessionState, seed: number, rngState: number, idCounter: number) {
+    this.state = state;
+    this.seedValue = seed;
+    this.rng = new Random(seed);
+    this.rng.state = rngState;
+    this.idCounter = idCounter;
   }
 
-  static NewGame(opts: NewGameOptions): GameSession {
-    const rng = new Random(opts.seed);
-    const cityName = opts.cityName.trim() || rollCityName(rng);
-    const agencyName = opts.agencyName.trim() || rollAgencyName(rng, cityName);
-    const directorName = opts.directorName.trim() || rollCivilianName(rng, 'female');
-
-    const districts: DistrictData[] = [];
-    const usedNames = new Set<string>();
-    const districtCount = rng.int(4, 5);
-    for (let i = 0; i < districtCount; i++) {
-      const base = rollCityName(rng);
-      const name = usedNames.has(base) ? `${base} ${rng.pick(DISTRICT_PREFIX)}` : base;
-      usedNames.add(name);
-      districts.push({
-        id: `district_${i + 1}`,
-        name,
-        kind: rng.pick(DISTRICT_KINDS),
-        population: rng.int(40, 340) * 1000,
-        unrest: rng.int(6, 24),
-        security: rng.int(45, 80),
-      });
-    }
-
-    const heroes: HeroData[] = [];
-    for (let i = 0; i < opts.rosterSize; i++) {
-      heroes.push(makeHero(rng, i + 1, { takenCallsigns: heroes.map((h) => h.callsign) }));
-    }
-
-    const snap: GameSnapshot = {
-      version: SNAPSHOT_VERSION,
-      seed: opts.seed,
-      rngState: rng.state,
+  static newGame(opts: NewGameOptions): NewGameResult {
+    const seed = opts.seed ?? (Date.now() & 0x7fffffff);
+    const rng = new Random(seed);
+    const state: SessionState = {
       turn: 0,
-      month: 0,
-      year: 2031,
-      agencyName,
-      cityName,
-      directorName,
-      resources: { funding: 120, trust: 58, intel: 40 },
-      heroes,
-      districts,
+      playerHeroId: '',
+      heroRoster: [],
+      villains: [],
       incidents: [],
-      chronicle: [],
-      flags: {},
-      stats: { incidentsHandled: 0, incidentsFailed: 0, heroesLost: 0, scandals: 0 },
-      pending: null,
+      alerts: [],
+      history: [],
+      resolvedIncidentIds: [],
+      over: false,
+      overReason: null,
     };
-
-    const session = new GameSession(snap);
-    session.log(`${agencyName} opens its doors over ${cityName}.`, 'turn');
-    session.log(`${heroes.length} names on the roster. First night on watch.`, 'hero');
-    return session;
+    const session = new GameSession(state, seed, rng.state, 0);
+    const player = session.characters.createHero(opts.realName, opts.alias, opts.powerSet, opts.origin);
+    state.playerHeroId = player.id;
+    state.heroRoster.push(player);
+    session.topUpRoster();
+    session.spawnIncidents(2, 3);
+    return { session, snapshot: session.snapshot() };
   }
 
-  static Load(raw: string): GameSession {
-    const parsed = JSON.parse(raw) as GameSnapshot;
-    if (parsed.version !== SNAPSHOT_VERSION) {
-      throw new Error(`save version ${parsed.version} not supported (expected ${SNAPSHOT_VERSION})`);
+  static fromSnapshot(snap: CitySnapshot): GameSession {
+    if (snap.version !== SNAPSHOT_VERSION) {
+      throw new Error(`save version ${snap.version} is not supported (expected ${SNAPSHOT_VERSION})`);
     }
-    return new GameSession(parsed);
+    const state: SessionState = {
+      turn: snap.turn,
+      playerHeroId: snap.playerHeroId,
+      heroRoster: structuredClone(snap.heroes),
+      villains: structuredClone(snap.villains),
+      incidents: structuredClone(snap.incidents),
+      alerts: snap.alerts.slice(),
+      history: snap.history.slice(),
+      resolvedIncidentIds: snap.resolvedIncidentIds.slice(),
+      over: snap.over,
+      overReason: snap.overReason,
+    };
+    return new GameSession(state, snap.seed, snap.rngState, snap.idCounter);
   }
 
-  Save(): string {
-    this.snap.rngState = this.rng.state;
-    this.snap.chronicle = this.chronicle.serialize();
-    return JSON.stringify(this.snap);
+  private allocateId(prefix: string): string {
+    this.idCounter += 1;
+    return `${prefix}_${this.idCounter.toString(36)}`;
   }
 
-  get pending(): PendingEvent | null {
-    return this.snap.pending;
+  /** Factories always wrap the session RNG, never a local one, or determinism breaks. */
+  private get characters(): CharacterFactory {
+    return new CharacterFactory(this.rng, (p) => this.allocateId(p));
   }
 
-  get isOver(): boolean {
-    return this.snap.resources.trust <= 0 || this.deployable().length === 0;
+  private get incidentFactory(): IncidentFactory {
+    return new IncidentFactory(this.rng, (p) => this.allocateId(p));
   }
 
-  get overReason(): string {
-    if (this.snap.resources.trust <= 0) {
-      return 'The city stopped believing in you. Funding is withdrawn and the agency is dissolved.';
-    }
-    if (this.deployable().length === 0) {
-      return 'No one is left on the roster who can still answer a call.';
-    }
-    return '';
+  // ---------- reads ----------
+
+  get playerHero(): HeroData | null {
+    return this.state.heroRoster.find((h) => h.id === this.state.playerHeroId) ?? null;
   }
 
-  dateLabel(): string {
-    return `${MONTHS[this.snap.month] ?? 'Month'} ${this.snap.year}`;
+  get allHeroes(): readonly HeroData[] {
+    return this.state.heroRoster;
   }
 
-  get agencyName(): string {
-    return this.snap.agencyName;
+  get openIncidents(): readonly IncidentData[] {
+    return this.state.incidents;
   }
 
-  get cityName(): string {
-    return this.snap.cityName;
-  }
-
-  get directorName(): string {
-    return this.snap.directorName;
-  }
-
-  logEntries(count: number) {
-    return this.chronicle.recent(count);
-  }
-
-  log(text: string, kind: LogKind = 'turn'): void {
-    this.chronicle.add(this.snap.turn, kind, text);
+  get villains(): readonly VillainData[] {
+    return this.state.villains;
   }
 
   get turn(): number {
-    return this.snap.turn;
+    return this.state.turn;
   }
 
-  stats(): Readonly<Stats> {
-    return this.snap.stats;
+  get isOver(): boolean {
+    return this.state.over;
   }
 
-  flags(): Readonly<Record<string, number>> {
-    return this.snap.flags;
+  get overReason(): string | null {
+    return this.state.overReason;
   }
 
-  res(): Readonly<Resources> {
-    return this.snap.resources;
+  get alerts(): readonly string[] {
+    return this.state.alerts;
   }
 
-  adjust(patch: Partial<Resources>): void {
-    for (const key of Object.keys(patch) as (keyof Resources)[]) {
-      const delta = patch[key];
-      if (delta === undefined) continue;
-      const bounds = RESOURCE_BOUNDS[key];
-      this.snap.resources[key] = clamp(this.snap.resources[key] + delta, bounds[0], bounds[1]);
-    }
+  get history(): readonly string[] {
+    return this.state.history;
   }
 
-  heroes(): readonly HeroData[] {
-    return this.snap.heroes;
+  // ---------- the core action ----------
+
+  /**
+   * The player picks ONE incident and TWO of the five approaches. Everything
+   * else is collateral: their timers tick, and anything hitting zero is
+   * resolved by whoever is left standing.
+   */
+  resolvePlayerIncident(incidentId: string, first: Approach, second: Approach): ResolutionReport {
+    if (this.state.over) throw new Error('run is over');
+    if (first === second) throw new Error('must choose two different approaches');
+
+    const incident = this.state.incidents.find((i) => i.id === incidentId);
+    if (!incident) throw new Error(`no open incident ${incidentId}`);
+    const player = this.playerHero;
+    if (!player) throw new Error('no player hero');
+
+    const approaches: [Approach, Approach] = [first, second];
+    const report = this.resolveIncidentFor(incident, player, approaches);
+
+    this.state.incidents = this.state.incidents.filter((i) => i.id !== incidentId);
+    this.state.resolvedIncidentIds.push(incidentId);
+    this.state.turn += 1;
+
+    const collateral = this.tickRemaining(player.id);
+    report.collateral = collateral;
+
+    this.state.alerts = this.buildAlerts(report);
+    this.topUpRoster();
+    this.checkTerminalState();
+    return report;
   }
 
-  heroById(id: string): HeroData | undefined {
-    return this.snap.heroes.find((h) => h.id === id);
+  /** The prototype's "Patrol": put fresh work on the board. */
+  patrol(): void {
+    if (this.state.over) return;
+    this.spawnIncidents(1, 2);
   }
 
-  available(): HeroData[] {
-    return this.snap.heroes.filter((h) => h.status === 'active' && h.deployedTo === null);
-  }
+  // ---------- resolution ----------
 
-  deployable(): HeroData[] {
-    return this.snap.heroes.filter((h) => h.status === 'active');
-  }
+  private resolveIncidentFor(
+    incident: IncidentData,
+    hero: HeroData,
+    approaches: readonly Approach[],
+  ): ResolutionReport {
+    const target = difficultyRoll(incident.difficulty);
+    const known = this.findManifestation(hero, incident, approaches);
 
-  districts(): readonly DistrictData[] {
-    return this.snap.districts;
-  }
+    let modifier = incident.approachModifiers[approaches[0]!] + incident.approachModifiers[approaches[1]!];
+    let levelled = false;
 
-  district(id: string): DistrictData | undefined {
-    return this.snap.districts.find((d) => d.id === id);
-  }
-
-  adjustDistrict(id: string, patch: Partial<Omit<DistrictData, 'id'>>): void {
-    const d = this.district(id);
-    if (!d) return;
-    Object.assign(d, patch);
-    d.unrest = clamp(d.unrest, 0, 100);
-    d.security = clamp(d.security, 0, 100);
-  }
-
-  worstDistrict(): DistrictData {
-    let worst = this.snap.districts[0];
-    for (const d of this.snap.districts) {
-      if (!worst || d.unrest > worst.unrest) worst = d;
-    }
-    if (!worst) throw new Error('session has no districts');
-    return worst;
-  }
-
-  incidents(): readonly IncidentData[] {
-    return this.snap.incidents;
-  }
-
-  openIncidents(): IncidentData[] {
-    return this.snap.incidents.filter((i) => !i.resolved);
-  }
-
-  setPending(p: PendingEvent | null): void {
-    this.snap.pending = p;
-  }
-
-  flag(key: string): number {
-    return this.snap.flags[key] ?? 0;
-  }
-
-  bumpFlag(key: string, amount: number): number {
-    const next = (this.snap.flags[key] ?? 0) + amount;
-    this.snap.flags[key] = next;
-    return next;
-  }
-
-  stat<K extends keyof Stats>(key: K, amount: number): void {
-    this.snap.stats[key] += amount;
-  }
-
-  setStatus(id: string, status: HeroData['status']): void {
-    const hero = this.heroById(id);
-    if (!hero) return;
-    hero.status = status;
-    if (status !== 'active') hero.deployedTo = null;
-  }
-
-  adjustHero(id: string, patch: Partial<Omit<HeroData, 'id'>>): void {
-    const hero = this.heroById(id);
-    if (!hero) return;
-    Object.assign(hero, patch);
-    hero.condition = clamp(hero.condition, 0, 100);
-    hero.morale = clamp(hero.morale, 0, 100);
-    hero.fame = clamp(hero.fame, 0, 100);
-    hero.secretPressure = clamp(hero.secretPressure, 0, 100);
-  }
-
-  setSecret(id: string, secret: SecretKind | null): void {
-    const hero = this.heroById(id);
-    if (!hero) return;
-    hero.secret = secret;
-    hero.secretPressure = 0;
-  }
-
-  resolveIncident(id: string, resolution: string, good: boolean): void {
-    const incident = this.snap.incidents.find((i) => i.id === id);
-    if (!incident || incident.resolved) return;
-    incident.resolved = true;
-    incident.outcome = good ? 'good' : 'bad';
-    incident.resolution = resolution;
-    const district = this.district(incident.districtId);
-    if (district) {
-      if (good) {
-        district.unrest = clamp(district.unrest - incident.severity * 1.5, 0, 100);
-        district.security = clamp(district.security + 2, 0, 100);
-      } else {
-        district.unrest = clamp(district.unrest + incident.severity * 2, 0, 100);
-        district.security = clamp(district.security - 3, 0, 100);
-      }
-    }
-    this.stat(good ? 'incidentsHandled' : 'incidentsFailed', 1);
-    this.log(resolution, good ? 'good' : 'bad');
-  }
-
-  canDeploy(heroId: string, incidentId: string): boolean {
-    const hero = this.heroById(heroId);
-    const incident = this.snap.incidents.find((i) => i.id === incidentId);
-    if (!hero || !incident) return false;
-    return hero.status === 'active' && hero.deployedTo === null && !incident.resolved;
-  }
-
-  teamOn(incidentId: string): HeroData[] {
-    return this.snap.heroes.filter((h) => h.deployedTo === incidentId);
-  }
-
-  deploy(heroId: string, incidentId: string): boolean {
-    if (!this.canDeploy(heroId, incidentId)) return false;
-    const hero = this.heroById(heroId);
-    const incident = this.snap.incidents.find((i) => i.id === incidentId);
-    if (!hero || !incident) return false;
-    hero.deployedTo = incident.id;
-    hero.morale = clamp(hero.morale - 3, 0, 100);
-    const district = this.district(incident.districtId);
-    this.log(`${hero.callsign} deploys to ${district?.name ?? 'the field'} — ${incident.kind}.`, 'hero');
-    return true;
-  }
-
-  recall(heroId: string): boolean {
-    const hero = this.heroById(heroId);
-    if (!hero || hero.deployedTo === null) return false;
-    hero.deployedTo = null;
-    hero.morale = clamp(hero.morale - 6, 0, 100);
-    this.adjust({ trust: -1 });
-    this.log(`${hero.callsign} pulled off the job. The press notices the empty street.`, 'hero');
-    return true;
-  }
-
-  canRest(heroId: string): boolean {
-    const hero = this.heroById(heroId);
-    return !!hero && hero.status === 'active' && hero.deployedTo === null && this.snap.resources.funding >= 8;
-  }
-
-  rest(heroId: string): boolean {
-    if (!this.canRest(heroId)) return false;
-    const hero = this.heroById(heroId);
-    if (!hero) return false;
-    hero.status = 'injured';
-    this.adjust({ funding: -8 });
-    this.log(`${hero.callsign} is stood down for recovery.`, 'hero');
-    return true;
-  }
-
-  canRecruit(): boolean {
-    return this.snap.resources.funding >= 45 && this.snap.heroes.filter((h) => h.status === 'active').length < 6;
-  }
-
-  recruit(): boolean {
-    if (!this.canRecruit()) return false;
-    this.adjust({ funding: -45 });
-    const hero = makeHero(this.rng, this.snap.heroes.length + 1, {
-      takenCallsigns: this.snap.heroes.map((h) => h.callsign),
-    });
-    this.snap.heroes.push(hero);
-    this.log(`${hero.callsign} signs on. Out of the paycheque, into the rain.`, 'hero');
-    return true;
-  }
-
-  standDownStruggling(): boolean {
-    for (const hero of this.snap.heroes) {
-      if (hero.deployedTo !== null) continue;
-      if (hero.status === 'active' && (hero.condition < 55 || hero.morale < 40)) {
-        hero.status = 'injured';
-        this.log(`${hero.callsign} takes a leave of absence.`, 'hero');
-      }
-    }
-    return true;
-  }
-
-  revealSecret(heroId: string): boolean {
-    const hero = this.heroById(heroId);
-    if (!hero || !hero.secret) return false;
-    const label = SECRET_LABEL[hero.secret];
-    hero.secret = null;
-    hero.secretPressure = 0;
-    this.adjust({ trust: -9, funding: 4 });
-    this.stat('scandals', 1);
-    this.log(`${hero.callsign}'s ${label} runs in the papers. Trust falls.`, 'secret');
-    return true;
-  }
-
-  Advance(): void {
-    if (this.snap.pending || this.isOver) return;
-    this.snap.turn += 1;
-    this.snap.month += 1;
-    if (this.snap.month >= 12) {
-      this.snap.month = 0;
-      this.snap.year += 1;
-    }
-
-    this.spawnIncidents();
-    this.tickIncidents();
-    this.economy();
-    this.heroDrift();
-    this.secrets();
-    this.rollEvent();
-
-    this.log(`— ${this.dateLabel()} —`, 'turn');
-  }
-
-  Choose(index: number): void {
-    const pending = this.snap.pending;
-    if (!pending) return;
-    const spec = this.events.byId(pending.id);
-    const choice = spec.choices[index];
-    this.snap.pending = null;
-    if (!choice) return;
-    if (choice.when && !choice.when({ api: this })) return;
-    choice.effect({ api: this });
-  }
-
-  private spawnIncidents(): void {
-    const open = this.openIncidents().length;
-    const rate = 0.8 + this.avgUnrest() / 50 - open * 0.14;
-    const count = this.rng.chance(rate) ? (this.rng.chance(0.25) ? 2 : 1) : 0;
-    for (let i = 0; i < count; i++) {
-      const district = this.rng.pick(this.snap.districts);
-      const kind = this.rng.pick(INCIDENT_KINDS);
-      const severity = clamp(Math.round(this.rng.gauss(district.unrest / 12 + 1.5, 1.4)), 1, 10);
-      const titles = INCIDENT_TITLES[kind];
-      const id = `incident_${this.snap.turn}_${this.snap.incidents.length + 1}`;
-      this.snap.incidents.push({
-        id,
-        kind,
-        districtId: district.id,
-        severity,
-        turnsLeft: clamp(2 + Math.round(severity / 4), 1, 4),
-        resolved: false,
-        outcome: '',
-        resolution: '',
-      });
-      this.log(
-        `Call in ${district.name}: ${this.rng.pick(titles)} (severity ${severity}).`,
-        severity >= 7 ? 'crisis' : 'city',
+    if (known) {
+      // Proven capability: reliable.
+      modifier += difficultyModifier(incident.difficulty);
+    } else if (this.rng.int(1, 20) >= target) {
+      // They have done this before, they just have not managed it as a hero yet.
+      modifier += difficultyModifier(incident.difficulty);
+      levelled = this.characters.grantManifestation(
+        hero,
+        this.rng.pick(approaches),
+        hero.powers[0]?.powerSet ?? 'SuperStrength',
+        hero.powers[0]?.origin ?? 'genetic',
+        incident.difficulty,
       );
-    }
-  }
-
-  private tickIncidents(): void {
-    for (const incident of this.snap.incidents) {
-      if (incident.resolved) continue;
-      incident.turnsLeft -= 1;
-      const team = this.teamOn(incident.id);
-      if (team.length > 0) {
-        const wear = Math.max(1, Math.round((2 + incident.severity) / team.length));
-        for (const hero of team) hero.condition = clamp(hero.condition - wear, 0, 100);
-      }
-      if (incident.turnsLeft > 0) continue;
-      if (team.length > 0) this.resolveDeployed(incident, team);
-      else this.expireIncident(incident);
-    }
-  }
-
-  private resolveDeployed(incident: IncidentData, team: HeroData[]): void {
-    const lead = [...team].sort((a, b) => b.condition - a.condition)[0];
-    if (!lead) return;
-    const advantage = ARCHETYPE_ADVANTAGE[incident.kind].includes(lead.archetype as Archetype) ? 0.12 : 0;
-    const support = Math.min(0.18, (team.length - 1) * 0.07);
-    const p = clamp(0.42 + (lead.condition - incident.severity * 5) / 150 + lead.morale / 200 + advantage + support, 0.15, 0.95);
-    const where = this.district(incident.districtId)?.name ?? 'the district';
-    for (const hero of team) hero.missions += 1;
-    this.releaseIncident(incident.id);
-    if (this.rng.chance(p)) {
-      for (const hero of team) {
-        const share = hero === lead ? 1.2 : 0.7;
-        hero.fame = clamp(hero.fame + incident.severity * share, 0, 100);
-        hero.morale = clamp(hero.morale + 4, 0, 100);
-      }
-      this.adjust({ trust: incident.severity * 0.45, funding: 3 });
-      const who = team.length > 1 ? `${lead.callsign} and ${team.length - 1} more` : lead.callsign;
-      this.resolveIncident(incident.id, `${who} closed it out in ${where}. The city saw.`, true);
     } else {
-      for (const hero of team) {
-        hero.condition = clamp(hero.condition - incident.severity, 0, 100);
-        hero.morale = clamp(hero.morale - 5, 0, 100);
-      }
-      this.adjust({ trust: -incident.severity * 0.3, intel: 1 });
-      const who = team.length > 1 ? `${lead.callsign}'s team` : lead.callsign;
-      this.resolveIncident(
-        incident.id,
-        `${who} could not hold ${where}. It got worse before it got better.`,
-        false,
+      modifier -= difficultyModifier(incident.difficulty);
+    }
+
+    const roll = this.rng.int(1, 20);
+    const resolved = roll + modifier >= target;
+    const reputationDelta = resolved ? (target % 5) + 1 : -((target % 5) + 1);
+    hero.reputation += reputationDelta;
+
+    let consequence: string | null = null;
+    let died = false;
+    let villain: ResolutionReport['villain'] = null;
+
+    if (resolved) {
+      const defeated = this.surfaceVillain();
+      const killed = approaches.includes('lethal');
+      defeated.status = killed ? 'dead' : 'imprisoned';
+      villain = { alias: defeated.alias, killed };
+      this.note(
+        `${hero.alias} ${killed ? 'put down' : 'stopped'} ${defeated.alias} during the ` +
+          `${INCIDENT_TYPE_DEFS[incident.type].label.toLowerCase()} in ${DISTRICT_LABELS[incident.district]}.`,
       );
+    } else {
+      const result = this.applySevereConsequence(hero);
+      consequence = result.message;
+      died = result.died;
     }
-    for (const hero of team) {
-      if (hero.condition > 0) continue;
-      this.setStatus(hero.id, 'lost');
-      this.stat('heroesLost', 1);
-      this.adjust({ trust: -12 });
-      this.log(`${hero.callsign} is gone. You do not use that word in front of the press.`, 'bad');
+
+    return {
+      incidentId: incident.id,
+      incidentType: incident.type,
+      district: incident.district,
+      actorHeroId: hero.id,
+      approaches: [approaches[0]!, approaches[1]!],
+      modifier,
+      roll,
+      target,
+      resolved,
+      levelled,
+      reputationDelta,
+      consequence,
+      died,
+      villain,
+      collateral: [],
+    };
+  }
+
+  private findManifestation(
+    hero: HeroData,
+    incident: IncidentData,
+    approaches: readonly Approach[],
+  ): ManifestationData | null {
+    const powerSet = hero.powers[0]?.powerSet;
+    if (!powerSet) return null;
+    return (
+      hero.manifestations.find(
+        (m) =>
+          approaches.includes(m.approach) &&
+          m.powerSet === powerSet &&
+          m.difficulty === incident.difficulty,
+      ) ?? null
+    );
+  }
+
+  /**
+   * The prototype's ladder: a failing hero first unlearns a manifestation, then
+   * loses a power, then dies. Failure costs capability, not health.
+   */
+  private applySevereConsequence(hero: HeroData): { message: string; died: boolean } {
+    if (hero.manifestations.length > 0) {
+      const m = this.rng.pick(hero.manifestations);
+      hero.manifestations = hero.manifestations.filter((x) => x !== m);
+      return { message: `${hero.alias} can no longer pull off ${m.name}.`, died: false };
     }
-  }
-
-  private releaseIncident(incidentId: string): void {
-    for (const hero of this.snap.heroes) {
-      if (hero.deployedTo === incidentId) hero.deployedTo = null;
+    if (hero.powers.length > 0) {
+      const p = this.rng.pick(hero.powers);
+      hero.powers = hero.powers.filter((x) => x !== p);
+      return {
+        message: `${hero.alias} has lost ${ORIGIN_DEFS[p.origin].label.toLowerCase()} ${POWER_SET_DEFS[p.powerSet].displayName.toLowerCase()}.`,
+        died: false,
+      };
     }
+    const wasPlayer = hero.id === this.state.playerHeroId;
+    this.state.heroRoster = this.state.heroRoster.filter((h) => h.id !== hero.id);
+    if (wasPlayer) this.inheritAnotherHero();
+    return { message: `${hero.alias} was killed.`, died: true };
   }
 
-  private expireIncident(incident: IncidentData): void {
-    const where = this.district(incident.districtId)?.name ?? 'the district';
-    this.adjustDistrict(incident.districtId, {
-      unrest: (this.district(incident.districtId)?.unrest ?? 0) + incident.severity * 2.5,
-      security: (this.district(incident.districtId)?.security ?? 0) - 4,
-    });
-    this.adjust({ trust: -incident.severity * 0.6 });
-    this.resolveIncident(incident.id, `Nobody answered in ${where}. It is on every channel by morning.`, false);
-  }
+  /**
+   * Resolving the player's incident costs the world a turn: every other open
+   * incident loses one tick, and anything expiring is auto-resolved by a single
+   * free hero (nobody handles two in one tick).
+   */
+  private tickRemaining(playerHeroId: string): CollateralResolution[] {
+    const out: CollateralResolution[] = [];
+    const busy = new Set<string>([playerHeroId]);
+    const expiring = [...this.state.incidents];
 
-  private economy(): void {
-    const active = this.snap.heroes.filter((h) => h.status === 'active').length;
-    const payroll = active * 5 + this.snap.districts.length * 3;
-    const open = this.openIncidents().length;
-    const security = this.snap.districts.reduce((sum, d) => sum + d.security, 0);
-    const income = 26 + security * 0.07;
-    this.adjust({ funding: income - payroll - open * 2, intel: active > 0 ? 1 : 0 });
+    for (const incident of expiring) {
+      incident.timeToResolve -= 1;
+      if (incident.timeToResolve > 0) continue;
 
-    const target = clamp(52 - this.avgUnrest() * 0.5 + this.avgFame() * 0.2 - open * 1.5, 0, 100);
-    const trust = this.snap.resources.trust;
-    this.adjust({ trust: (target - trust) * 0.08 });
-  }
+      const free = this.state.heroRoster.filter((h) => !busy.has(h.id));
+      const roll = this.rng.int(1, 100);
+      const threshold = 100 - Math.min(this.state.heroRoster.length, 3);
+      const chosen = free.length > 0 && roll < threshold ? this.rng.pick(free) : null;
 
-  private heroDrift(): void {
-    for (const hero of this.snap.heroes) {
-      if (hero.status === 'lost') continue;
-      const resting = hero.deployedTo === null;
-      const regen = hero.status === 'injured' ? 12 : resting ? 6 : 2;
-      hero.condition = clamp(hero.condition + regen - (hero.age > 40 ? 1 : 0), 0, 100);
-      const moraleTarget = clamp(46 + hero.fame * 0.25 - (resting ? 0 : 9), 0, 100);
-      hero.morale = clamp(hero.morale + (moraleTarget - hero.morale) * 0.12, 0, 100);
-      hero.fame = clamp(hero.fame + (resting ? 0.35 : -0.15), 0, 100);
-    }
-  }
-
-  private secrets(): void {
-    for (const hero of this.snap.heroes) {
-      if (hero.status === 'lost') continue;
-      if (!hero.secret) {
-        if (this.rng.chance(0.05)) {
-          const secret = this.rng.pick(['payroll', 'substance', 'informant', 'faction', 'imposter'] as const);
-          hero.secret = secret;
-          this.log(`A file on ${hero.callsign} just got thicker.`, 'secret');
+      if (chosen) {
+        busy.add(chosen.id);
+        const approaches = this.rng.shuffle(APPROACHES).slice(0, 2) as [Approach, Approach];
+        const report = this.resolveIncidentFor(incident, chosen, approaches);
+        out.push({
+          incidentId: incident.id,
+          incidentType: incident.type,
+          district: incident.district,
+          heroId: chosen.id,
+          resolved: report.resolved,
+          roll: report.roll,
+          target: report.target,
+          consequence: report.consequence,
+        });
+        this.note(
+          `${chosen.alias} answered the ${INCIDENT_TYPE_DEFS[incident.type].label.toLowerCase()} in ` +
+            `${DISTRICT_LABELS[incident.district]} while you were busy.`,
+        );
+      } else {
+        if (this.state.heroRoster.length < 4) {
+          const relief = this.characters.createGeneratedHero();
+          this.state.heroRoster.push(relief);
+          this.note(`${relief.alias} came to Vigilant. The city needed the help.`);
+        } else {
+          for (const h of this.state.heroRoster) h.reputation -= 1;
         }
-        continue;
+        out.push({
+          incidentId: incident.id,
+          incidentType: incident.type,
+          district: incident.district,
+          heroId: null,
+          resolved: false,
+          roll: 0,
+          target: 0,
+          consequence: 'Nobody answered. The whole city noticed.',
+        });
       }
-      hero.secretPressure = clamp(hero.secretPressure + 4 + hero.fame * 0.05, 0, 100);
+
+      this.state.incidents = this.state.incidents.filter((i) => i.id !== incident.id);
+      this.state.resolvedIncidentIds.push(incident.id);
+    }
+
+    return out;
+  }
+
+  // ---------- roster ----------
+
+  private surfaceVillain(): VillainData {
+    const active = this.state.villains.find((v) => v.status === 'active');
+    if (active) return active;
+    const villain = this.characters.createVillain();
+    this.state.villains.push(villain);
+    return villain;
+  }
+
+  private topUpRoster(): void {
+    while (this.state.heroRoster.length < 3) {
+      this.state.heroRoster.push(this.characters.createGeneratedHero());
     }
   }
 
-  private rollEvent(): void {
-    const spec = this.events.roll(this);
-    if (!spec) return;
-    if (spec.choices.length > 0) {
-      this.snap.pending = this.events.buildPending(spec, this);
+  private inheritAnotherHero(): void {
+    const heir = this.state.heroRoster[0];
+    if (!heir) {
+      this.state.over = true;
+      this.state.overReason = 'Your hero died with no one left to inherit. Vigilant falls.';
       return;
     }
-    spec.effect?.({ api: this });
+    this.state.playerHeroId = heir.id;
+    this.note(`The city has nobody else. You are now ${heir.alias}.`);
   }
 
-  private avgUnrest(): number {
-    if (this.snap.districts.length === 0) return 0;
-    return this.snap.districts.reduce((s, d) => s + d.unrest, 0) / this.snap.districts.length;
+  private spawnIncidents(min: number, max: number): void {
+    const count = this.rng.int(min, max);
+    for (let i = 0; i < count; i += 1) {
+      this.state.incidents.push(this.incidentFactory.createIncident());
+    }
   }
 
-  private avgFame(): number {
-    const active = this.snap.heroes.filter((h) => h.status !== 'lost');
-    if (active.length === 0) return 0;
-    return active.reduce((s, h) => s + h.fame, 0) / active.length;
+  private checkTerminalState(): void {
+    if (this.state.heroRoster.length === 0) {
+      this.state.over = true;
+      this.state.overReason = 'No hero remains. Vigilant falls.';
+    }
+  }
+
+  private buildAlerts(report: ResolutionReport): string[] {
+    const lines: string[] = [];
+    const who = this.state.heroRoster.find((h) => h.id === report.actorHeroId)?.alias ?? 'Your hero';
+    lines.push(
+      report.resolved
+        ? `${who} succeeded.`
+        : `${who} failed. ${report.consequence ?? ''}`.trim(),
+    );
+    for (const c of report.collateral) {
+      const hero = c.heroId ? this.state.heroRoster.find((h) => h.id === c.heroId) : null;
+      lines.push(
+        hero
+          ? `${hero.alias} ${c.resolved ? 'handled' : 'struggled with'} the ${INCIDENT_TYPE_DEFS[c.incidentType].label.toLowerCase()}.`
+          : `The ${INCIDENT_TYPE_DEFS[c.incidentType].label.toLowerCase()} went unattended.`,
+      );
+    }
+    return lines;
+  }
+
+  private note(line: string): void {
+    this.state.history.unshift(line);
+    if (this.state.history.length > HISTORY_LIMIT) this.state.history.length = HISTORY_LIMIT;
+  }
+
+  // ---------- persistence ----------
+
+  snapshot(): CitySnapshot {
+    return {
+      version: SNAPSHOT_VERSION,
+      seed: this.seedValue,
+      rngState: this.rng.state,
+      idCounter: this.idCounter,
+      turn: this.state.turn,
+      playerHeroId: this.state.playerHeroId,
+      heroes: structuredClone(this.state.heroRoster),
+      villains: structuredClone(this.state.villains),
+      incidents: structuredClone(this.state.incidents),
+      alerts: this.state.alerts.slice(),
+      history: this.state.history.slice(),
+      resolvedIncidentIds: this.state.resolvedIncidentIds.slice(),
+      over: this.state.over,
+      overReason: this.state.overReason,
+    };
   }
 }
 
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, v));
-}
+export type { PowerData };

@@ -1,112 +1,99 @@
+import { useState } from 'react';
 import type { GameSession } from '../../engine/core/GameSession';
+import type { Approach } from '../../engine/data/approaches';
+import { APPROACH_DEFS } from '../../engine/data/approaches';
+import { DIFFICULTY_DEFS } from '../../engine/data/difficulty';
+import { DISTRICT_LABELS } from '../../engine/data/districts';
+import { INCIDENT_TYPE_DEFS } from '../../engine/data/incidentTypes';
+import { APPROACHES } from '../../engine/data/approaches';
+import type { IncidentData, ResolutionReport } from '../../engine/core/types';
+import { ApproachPicker } from './ApproachPicker';
+import { TurnReport } from './TurnReport';
 
 interface Props {
   session: GameSession;
+  onResolve: (incidentId: string, a: Approach, b: Approach) => ResolutionReport;
+  onPatrol: () => void;
 }
 
-const KIND_LABEL: Record<string, string> = {
-  financial: 'Financial',
-  industrial: 'Industrial',
-  residential: 'Residential',
-  docks: 'Docks',
-  civic: 'Civic',
-};
+export function CityView({ session, onResolve, onPatrol }: Props) {
+  const [target, setTarget] = useState<IncidentData | null>(null);
+  const [report, setReport] = useState<ResolutionReport | null>(null);
+  const incidents = session.openIncidents;
+  const empty = incidents.length === 0;
 
-const FLAG_LABEL: Record<string, string> = {
-  openBooks: 'Open books',
-  cookedBooks: 'Adjusted books',
-  emergencyDesignation: 'Emergency designation',
-  oversight: 'Council oversight',
-  reporting: 'Published reporting',
-  defiant: 'Defied the council',
-  criticalOnly: 'Critical calls only',
-  refusedTriage: 'Refused triage terms',
-  schools: 'School programme',
-  raided: 'Raid conducted',
-  infiltration: 'Source inside the cell',
-  moraleProgramme: 'Support programme',
-  pressProtocol: 'Press protocol',
-  movedWitnesses: 'Witness relocated',
-  decoyProtocol: 'Decoy protocol',
-  leaked: 'Leak made moot',
-  extendedMandate: 'Extended mandate',
-  rivalryQuiet: 'Quiet coordination',
-  engaged: 'Engaged the debate',
-  fedRival: 'Fed a rival story',
-};
+  const hero = session.playerHero;
+  const heroPowerSet = hero?.powers[0]?.powerSet;
+  const known = (incident: IncidentData, approach: Approach) =>
+    hero?.manifestations.some((m) => m.approach === approach && m.powerSet === heroPowerSet && m.difficulty === incident.difficulty) ?? false;
 
-export function CityView({ session: s }: Props) {
-  const st = s.stats();
-  const flags = Object.entries(s.flags()).filter(([, v]) => v > 0);
+  const resolve = (a: Approach, b: Approach) => {
+    if (!target) return;
+    const id = target.id;
+    setTarget(null);
+    const result = onResolve(id, a, b);
+    setReport(result ?? null);
+  };
 
   return (
-    <div className="city">
-      <section className="districts">
-        <h2>Districts</h2>
-        <div className="district-grid">
-          {s.districts().map((d) => (
-            <article key={d.id} className="district">
-              <header>
-                <h3>{d.name}</h3>
-                <span className="kind">{KIND_LABEL[d.kind] ?? d.kind}</span>
-              </header>
-              <p className="pop">{(d.population / 1000).toFixed(0)}k residents</p>
-              <Meter label="Unrest" value={d.unrest} tone="unrest" />
-              <Meter label="Security" value={d.security} tone="security" />
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="record">
-        <h2>Record</h2>
-        <ul className="record-list">
-          <li>
-            <span>Incidents handled</span>
-            <strong>{st.incidentsHandled}</strong>
-          </li>
-          <li>
-            <span>Incidents missed</span>
-            <strong className={st.incidentsFailed > 0 ? 'warn' : ''}>{st.incidentsFailed}</strong>
-          </li>
-          <li>
-            <span>Heroes lost</span>
-            <strong className={st.heroesLost > 0 ? 'warn' : ''}>{st.heroesLost}</strong>
-          </li>
-          <li>
-            <span>Scandals</span>
-            <strong className={st.scandals > 0 ? 'warn' : ''}>{st.scandals}</strong>
-          </li>
-        </ul>
-      </section>
-
-      <section className="standing">
-        <h2>Standing orders</h2>
-        {flags.length === 0 ? (
-          <p className="empty">Nothing on the record yet. That will change.</p>
-        ) : (
-          <ul className="flag-list">
-            {flags.map(([key, value]) => (
-              <li key={key}>
-                {FLAG_LABEL[key] ?? key}
-                {value > 1 && <span className="count"> ×{value}</span>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function Meter({ label, value, tone }: { label: string; value: number; tone: string }) {
-  return (
-    <div className="bar">
-      <span className="bar-label">{label}</span>
-      <div className="bar-track">
-        <div className={`bar-fill ${tone}`} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+    <div className="panel">
+      <div className="panel-head">
+        <h2>Open incidents</h2>
+        <button
+          onClick={onPatrol}
+          disabled={!empty}
+          type="button"
+          title="Send a patrol to put fresh work on the board"
+        >
+          Patrol
+        </button>
       </div>
-      <span className="bar-value">{Math.round(value)}</span>
+
+      {empty && (
+        <p className="muted">
+          The city is briefly quiet. That will not last. Send a patrol to find out what is coming.
+        </p>
+      )}
+
+      <div className="incident-grid">
+        {incidents
+          .slice()
+          .sort((a, b) => a.timeToResolve - b.timeToResolve)
+          .map((incident) => {
+            const def = INCIDENT_TYPE_DEFS[incident.type];
+            const urgent = incident.timeToResolve <= 1;
+            return (
+              <button
+                key={incident.id}
+                className={`incident${urgent ? ' urgent' : ''}`}
+                onClick={() => setTarget(incident)}
+                type="button"
+              >
+                <div className="incident-head">
+                  <strong>{def.label}</strong>
+                  <span className={`timer${urgent ? ' urgent' : ''}`}>{incident.timeToResolve}</span>
+                </div>
+                <div className="incident-where">{DISTRICT_LABELS[incident.district]}</div>
+                <div className="incident-diff">
+                  {DIFFICULTY_DEFS[incident.difficulty].label} · needs {DIFFICULTY_DEFS[incident.difficulty].roll}
+                </div>
+                <div className="incident-mods">
+                  {APPROACHES.map((a) => {
+                    const mod = incident.approachModifiers[a];
+                    return (
+                      <span key={a} className={`chip ${known(incident, a) ? 'known' : ''}`}>
+                        {APPROACH_DEFS[a].label.slice(0, 4)} {mod >= 0 ? `+${mod}` : mod}
+                      </span>
+                    );
+                  })}
+                </div>
+              </button>
+            );
+          })}
+      </div>
+
+      {target && <ApproachPicker incident={target} onCancel={() => setTarget(null)} onConfirm={resolve} />}
+      {report && <TurnReport report={report} onDismiss={() => setReport(null)} />}
     </div>
   );
 }

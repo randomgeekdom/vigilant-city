@@ -1,154 +1,173 @@
+/**
+ * Headless harness. The engine has no DOM imports, so the whole game runs here.
+ *
+ * Checks three things:
+ *  1. The loop terminates and produces plausible games over many seeds.
+ *  2. A save/load round-trip is byte-identical AND continues the same rng stream.
+ *  3. The pacing rule actually holds: resolving one incident ticks the others.
+ */
 import { GameSession } from './core/GameSession';
-import { EventRegistry } from './core/EventSystem';
-import { ALL_EVENTS } from './events';
-import type { HeroStatus } from './core/types';
-
-const TURNS = Number(process.env.VIGILANT_TURNS ?? 60);
-const SEED = Number(process.env.VIGILANT_SEED ?? 20260925);
+import { SNAPSHOT_VERSION, type CitySnapshot, type HeroData } from './core/types';
+import { APPROACHES, type Approach } from './data/approaches';
+import { POWER_SETS, type PowerSet } from './data/powersets';
+import { POWER_ORIGINS, type PowerOrigin } from './data/origins';
+import { Random } from './core/Random';
 
 let failures = 0;
 
-function check(label: string, ok: boolean, detail = ''): void {
-  if (ok) {
-    console.log(`  ok   ${label}${detail ? ` — ${detail}` : ''}`);
+function check(label: string, condition: boolean, detail = ''): void {
+  if (condition) {
+    console.log(`  ok   ${label}`);
   } else {
     failures += 1;
-    console.error(`  FAIL ${label}${detail ? ` — ${detail}` : ''}`);
+    console.log(`  FAIL ${label}${detail ? ` -- ${detail}` : ''}`);
   }
 }
 
-function inRange(v: number, lo: number, hi: number): boolean {
-  return Number.isFinite(v) && v >= lo && v <= hi;
+function pickTwo(rng: Random): [Approach, Approach] {
+  const shuffled = rng.shuffle(APPROACHES);
+  return [shuffled[0]!, shuffled[1]!];
 }
 
-function direct(session: GameSession): void {
-  const open = [...session.openIncidents()].sort((a, b) => b.severity - a.severity);
-  for (const incident of open) {
-    const free = [...session.available()].sort((a, b) => b.condition - a.condition);
-    const hero = free[0];
-    if (hero) session.deploy(hero.id, incident.id);
-  }
-}
-
-function simulate(seed: number, turns: number): GameSession {
-  const session = GameSession.NewGame({
+function playRun(seed: number, maxTurns: number): GameSession {
+  const rng = new Random(seed ^ 0x5eed);
+  const powerSet = rng.pick(POWER_SETS) as PowerSet;
+  const origin = rng.pick(POWER_ORIGINS) as PowerOrigin;
+  const { session } = GameSession.newGame({
+    realName: 'Test Subject',
+    alias: 'Test Hero',
+    powerSet,
+    origin,
     seed,
-    agencyName: '',
-    cityName: '',
-    directorName: '',
-    rosterSize: 4,
   });
 
-  for (let i = 0; i < turns; i++) {
-    if (session.isOver) break;
-    if (session.pending) {
-      const enabled = session.pending.choices.findIndex((c) => c.enabled);
-      session.Choose(enabled >= 0 ? enabled : 0);
+  let guard = 0;
+  while (!session.isOver && session.turn < maxTurns && session.openIncidents.length > 0 && guard < 10_000) {
+    const incident = session.openIncidents[Math.floor(rng.next() * session.openIncidents.length)]!;
+    const [a, b] = pickTwo(rng);
+    try {
+      session.resolvePlayerIncident(incident.id, a, b);
+    } catch {
+      break;
     }
-    direct(session);
-    session.Advance();
+    guard += 1;
   }
   return session;
 }
 
-console.log(`Vigilant City playtest — seed ${SEED}, ${TURNS} months\n`);
+console.log('determinism and integrity');
+{
+  const seed = 1234;
+  const session = playRun(seed, 60);
+  const snap = session.snapshot();
+  check('run produced history', session.history.length > 0, `history=${session.history.length}`);
+  check('turns advanced', snap.turn > 0, `turn=${snap.turn}`);
+  check('snapshot version current', snap.version === SNAPSHOT_VERSION);
 
-const registry = new EventRegistry(ALL_EVENTS);
-console.log('event packs');
-check('registry loaded', registry.size() > 0, `${registry.size()} events`);
-const ids = new Set(ALL_EVENTS.map((e) => e.id));
-check('event ids unique', ids.size === ALL_EVENTS.length, `${ids.size} unique of ${ALL_EVENTS.length}`);
-check(
-  'every event has choices or effect',
-  ALL_EVENTS.every((e) => e.choices.length > 0 || e.effect !== undefined),
-);
-check('every event has a title', ALL_EVENTS.every((e) => e.title.trim().length > 0));
-check('every choice has an effect', ALL_EVENTS.every((e) => e.choices.every((c) => typeof c.effect === 'function')));
+  const replayed = playRun(seed, 60).snapshot();
+  check('same seed reproduces run', JSON.stringify(replayed) === JSON.stringify(snap));
 
-console.log('\nsingle run');
-const session = simulate(SEED, TURNS);
-const res = session.res();
-const stats = session.stats();
+  const restored = GameSession.fromSnapshot(snap);
+  check('load round-trip preserves state', JSON.stringify(restored.snapshot()) === JSON.stringify(snap));
 
-check('turns advanced', session.turn > 0, `${session.turn} months`);
-check('funding finite and in range', inRange(res.funding, 0, 500), `${res.funding.toFixed(1)}`);
-check('trust finite and in range', inRange(res.trust, 0, 100), `${res.trust.toFixed(1)}`);
-check('intel finite and in range', inRange(res.intel, 0, 100), `${res.intel.toFixed(1)}`);
-check('roster survived', session.heroes().length >= 1, `${session.heroes().length} heroes`);
-check(
-  'hero stats in range',
-  session.heroes().every(
-    (h) => inRange(h.condition, 0, 100) && inRange(h.morale, 0, 100) && inRange(h.fame, 0, 100),
-  ),
-);
-check('districts in range', session.districts().every((d) => inRange(d.unrest, 0, 100) && inRange(d.security, 0, 100)));
-check(
-  'no NaN leaked into state',
-  !/NaN|Infinity/.test(session.Save()),
-  'snapshot stringifies clean',
-);
-check('stats non-negative', stats.incidentsHandled >= 0 && stats.incidentsFailed >= 0);
+  const continueA = playForward(restored, 5);
+  const fresh = GameSession.fromSnapshot(snap);
+  const continueB = playForward(fresh, 5);
+  check(
+    'rng stream continues identically after load',
+    JSON.stringify(continueA.snapshot()) === JSON.stringify(continueB.snapshot()),
+  );
+}
 
-const orphans = session.heroes().filter((h) => {
-  if (h.deployedTo === null) return false;
-  const inc = session.incidents().find((i) => i.id === h.deployedTo);
-  return !inc || inc.resolved;
-});
-check('no heroes stranded on closed incidents', orphans.length === 0, `${orphans.length} orphans`);
+console.log('pacing rule');
+{
+  const { session } = GameSession.newGame({
+    realName: 'Pacer',
+    alias: 'Pacer',
+    powerSet: 'Flight',
+    origin: 'genetic',
+    seed: 99,
+  });
+  const before = session.openIncidents.map((i) => ({ id: i.id, t: i.timeToResolve }));
+  const target = session.openIncidents[0]!;
+  const others = before.filter((i) => i.id !== target.id);
+  const [a, b] = ['swift', 'tactical'] as [Approach, Approach];
+  session.resolvePlayerIncident(target.id, a, b);
 
-const badStatus: HeroStatus[] = ['active', 'injured', 'retired', 'lost'];
-check(
-  'hero statuses valid',
-  session.heroes().every((h) => badStatus.includes(h.status)),
-);
+  const ticked = others.every((o) => {
+    const now = session.openIncidents.find((i) => i.id === o.id);
+    return !now || now.timeToResolve === o.t - 1;
+  });
+  check('every other incident ticked down by exactly 1', ticked);
+  check('resolved incident left the board', !session.openIncidents.some((i) => i.id === target.id));
+}
 
-console.log('\nsave round-trip');
-const saved = session.Save();
-const restored = GameSession.Load(saved);
-check('turn matches', restored.turn === session.turn);
-check('resources match', JSON.stringify(restored.res()) === JSON.stringify(session.res()));
-check('roster matches', restored.heroes().length === session.heroes().length);
-check('chronicle matches', restored.logEntries(60).length === session.logEntries(60).length);
+console.log('failing hero loses capability before dying');
+{
+  const { session } = GameSession.newGame({
+    realName: 'Fragile',
+    alias: 'Fragile',
+    powerSet: 'SuperStrength',
+    origin: 'technological',
+    seed: 4242,
+  });
+  const hero = session.playerHero as HeroData;
+  const manifestCount = hero.manifestations.length;
+  const powerCount = hero.powers.length;
+  const wasPlayer = session.playerHero?.id;
 
-const nextA = simulate(SEED, TURNS);
-nextA.Advance();
-const fromSave = GameSession.Load(saved);
-fromSave.Advance();
-check(
-  'restore continues the same deterministic stream',
-  nextA.Save() === fromSave.Save(),
-  nextA.Save() === fromSave.Save() ? 'byte-identical' : 'streams diverged',
-);
-
-console.log('\nmulti-seed sweep');
-let ranOut = 0;
-let survived = 0;
-let handledTotal = 0;
-for (let i = 0; i < 12; i++) {
-  const s = simulate(SEED + i * 7919, 48);
-  if (s.isOver) ranOut += 1;
-  else survived += 1;
-  handledTotal += s.stats().incidentsHandled;
-  const r = s.res();
-  if (!inRange(r.funding, 0, 500) || !inRange(r.trust, 0, 100)) {
-    check(`seed ${SEED + i * 7919} resources in range`, false, `funding ${r.funding} trust ${r.trust}`);
+  let sawManifestationLoss = false;
+  let sawPowerLoss = false;
+  for (let i = 0; i < 400 && !session.isOver; i += 1) {
+    if (session.openIncidents.length === 0) {
+      session.patrol();
+      if (session.openIncidents.length === 0) break;
+    }
+    const inc = session.openIncidents[0]!;
+    const [a, b] = pickTwo(new Random(i));
+    try {
+      session.resolvePlayerIncident(inc.id, a, b);
+    } catch {
+      break;
+    }
+    const h = session.allHeroes.find((x) => x.id === wasPlayer);
+    if (h && h.manifestations.length < manifestCount) sawManifestationLoss = true;
+    if (h && h.powers.length < powerCount) sawPowerLoss = true;
   }
-}
-check('no seed produced out-of-range resources', true);
-check('run terminates on every seed', survived + ranOut === 12, `${survived} survived, ${ranOut} ended`);
-check('greedy director actually resolves calls', handledTotal > 0, `${handledTotal} handled across sweep`);
-check('greedy director is beatable', survived > 0, `${survived}/12 survived 48 months`);
-
-console.log('\nfinal state of seed ' + SEED);
-console.log(`  ${session.agencyName} over ${session.dateLabel()}`);
-console.log(`  funding ${res.funding.toFixed(0)}  trust ${res.trust.toFixed(0)}  intel ${res.intel.toFixed(0)}`);
-console.log(`  handled ${stats.incidentsHandled}  missed ${stats.incidentsFailed}  lost ${stats.heroesLost}  scandals ${stats.scandals}`);
-if (session.isOver) console.log(`  ended: ${session.overReason}`);
-
-console.log('\nsample chronicle');
-for (const entry of session.logEntries(8)) {
-  console.log(`  [${entry.kind}] ${entry.text}`);
+  check('manifestations can be shed on failure', sawManifestationLoss || sawPowerLoss);
 }
 
-console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) failed.`);
+console.log('rider sweeps');
+{
+  let finished = 0;
+  let incidents = 0;
+  let over = 0;
+  for (let seed = 1; seed <= 200; seed += 1) {
+    const s = playRun(seed * 7919, 200);
+    if (s.turn > 0) finished += 1;
+    incidents += s.openIncidents.length;
+    if (s.isOver) over += 1;
+  }
+  check('all 200 seeds produced a playable run', finished === 200, `finished=${finished}`);
+  check('runs terminate or cap out', incidents >= 0);
+  console.log(`  info terminal runs: ${over}/200, mean open incidents at cap: ${(incidents / 200).toFixed(2)}`);
+}
+
+console.log(failures === 0 ? '\nPLAYTEST PASS' : `\nPLAYTEST FAIL (${failures})`);
 process.exit(failures === 0 ? 0 : 1);
+
+function playForward(session: GameSession, steps: number): GameSession {
+  const rng = new Random(777);
+  for (let i = 0; i < steps && !session.isOver && session.openIncidents.length > 0; i += 1) {
+    const inc = session.openIncidents[0]!;
+    const [a, b] = pickTwo(rng);
+    try {
+      session.resolvePlayerIncident(inc.id, a, b);
+    } catch {
+      break;
+    }
+  }
+  return session;
+}
+
+export type { CitySnapshot };

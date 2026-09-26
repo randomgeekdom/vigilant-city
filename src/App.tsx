@@ -1,38 +1,47 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
+import { parseSave } from './engine/core/saveIO';
 import { GameSession } from './engine/core/GameSession';
+import type { ResolutionReport } from './engine/core/types';
+import type { Approach } from './engine/data/approaches';
+import type { PowerSet } from './engine/data/powersets';
+import type { PowerOrigin } from './engine/data/origins';
 import { Sidebar } from './ui/components/Sidebar';
 import { ChronicleView } from './ui/components/ChronicleView';
-import { EventModal } from './ui/components/EventModal';
 import { NewGame } from './ui/components/NewGame';
 import { RosterView } from './ui/components/RosterView';
-import { DispatchView } from './ui/components/DispatchView';
 import { CityView } from './ui/components/CityView';
+import { PrisonView } from './ui/components/PrisonView';
 import { GameOver } from './ui/components/GameOver';
 
-type TabKey = 'roster' | 'dispatch' | 'city';
+type TabKey = 'city' | 'roster' | 'prison';
 
 const TABS: readonly { key: TabKey; label: string }[] = [
-  { key: 'roster', label: 'Roster' },
-  { key: 'dispatch', label: 'Dispatch' },
   { key: 'city', label: 'City' },
+  { key: 'roster', label: 'Heroes' },
+  { key: 'prison', label: 'Prison' },
 ];
 
 export function App() {
   const sessionRef = useRef<GameSession | null>(null);
   const [, force] = useReducer((x: number) => x + 1, 0);
-  const [tab, setTab] = useState<TabKey>('roster');
+  const [tab, setTab] = useState<TabKey>('city');
   const [booted, setBooted] = useState(false);
+  const [hasSave, setHasSave] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const data = await window.gameAPI?.load();
+      const raw = await window.gameAPI?.load();
       if (cancelled) return;
-      if (data) {
-        try {
-          sessionRef.current = GameSession.Load(data);
-        } catch {
-          sessionRef.current = null;
+      if (raw) {
+        const data = parseSave(raw);
+        if (data) {
+          try {
+            sessionRef.current = GameSession.fromSnapshot(data);
+            setHasSave(true);
+          } catch {
+            sessionRef.current = null;
+          }
         }
       }
       setBooted(true);
@@ -43,38 +52,40 @@ export function App() {
     };
   }, []);
 
-  const scheduleSave = () => {
-    setTimeout(() => {
-      const s = sessionRef.current;
-      if (s && window.gameAPI) void window.gameAPI.save(s.Save());
-    }, 60);
+  const persist = () => {
+    const s = sessionRef.current;
+    if (s && window.gameAPI) void window.gameAPI.save(JSON.stringify(s.snapshot()));
   };
 
   const commit = (fn: () => void) => {
     fn();
     force();
-    scheduleSave();
+    setTimeout(persist, 60);
   };
 
   const startNewGame = (opts: {
-    seed: number;
-    agencyName: string;
-    cityName: string;
-    directorName: string;
-    rosterSize: number;
+    realName: string;
+    alias: string;
+    powerSet: PowerSet;
+    origin: PowerOrigin;
   }) => {
-    sessionRef.current = GameSession.NewGame(opts);
-    setTab('roster');
+    const { session } = GameSession.newGame(opts);
+    sessionRef.current = session;
+    setHasSave(true);
+    setTab('city');
     force();
-    scheduleSave();
+    setTimeout(persist, 60);
   };
 
   const loadGame = () => {
     void (async () => {
-      const data = await window.gameAPI?.load();
+      const raw = await window.gameAPI?.load();
+      if (!raw) return;
+      const data = parseSave(raw);
       if (!data) return;
       try {
-        sessionRef.current = GameSession.Load(data);
+        sessionRef.current = GameSession.fromSnapshot(data);
+        setTab('city');
         force();
       } catch {
         /* corrupt save — treat as no save */
@@ -84,25 +95,29 @@ export function App() {
 
   const abandon = () => {
     sessionRef.current = null;
-    setBooted(true);
+    setTab('city');
     force();
   };
 
   const s = sessionRef.current;
 
-  if (!booted) return <div className="splash">Vigilant City — powering up the grid…</div>;
-  if (!s) return <NewGame onStart={startNewGame} onLoad={loadGame} />;
+  if (!booted) return <div className="splash">Vigilant City — the city is waking up…</div>;
+  if (!s) return <NewGame onStart={startNewGame} onLoad={loadGame} hasSave={hasSave} />;
 
-  const canAdvance = !s.pending && !s.isOver;
+  const resolve = (incidentId: string, a: Approach, b: Approach): ResolutionReport => {
+    let out: ResolutionReport | null = null;
+    commit(() => {
+      out = s.resolvePlayerIncident(incidentId, a, b);
+    });
+    return out!;
+  };
 
   return (
     <div className="app">
       <Sidebar
         session={s}
-        canAdvance={canAdvance}
-        onAdvance={() => commit(() => s.Advance())}
         onSave={() => {
-          if (window.gameAPI) void window.gameAPI.save(s.Save());
+          persist();
           force();
         }}
         onLoad={loadGame}
@@ -116,37 +131,28 @@ export function App() {
               key={t.key}
               className={tab === t.key ? 'tab active' : 'tab'}
               onClick={() => setTab(t.key)}
+              type="button"
             >
               {t.label}
-              {t.key === 'dispatch' && s.openIncidents().length > 0 && (
-                <span className="badge">{s.openIncidents().length}</span>
+              {t.key === 'city' && s.openIncidents.length > 0 && (
+                <span className="badge">{s.openIncidents.length}</span>
               )}
             </button>
           ))}
         </nav>
 
         <div className="tab-body">
-          {tab === 'roster' && (
-            <RosterView
-              session={s}
-              onRecruit={() => commit(() => s.recruit())}
-              onRest={(id) => commit(() => s.rest(id))}
-              onRecall={(id) => commit(() => s.recall(id))}
-              onStandDown={() => commit(() => s.standDownStruggling())}
-              onReveal={(id) => commit(() => s.revealSecret(id))}
-            />
+          {tab === 'city' && (
+            <CityView session={s} onResolve={resolve} onPatrol={() => commit(() => s.patrol())} />
           )}
-          {tab === 'dispatch' && (
-            <DispatchView session={s} onDeploy={(heroId, incidentId) => commit(() => s.deploy(heroId, incidentId))} />
-          )}
-          {tab === 'city' && <CityView session={s} />}
+          {tab === 'roster' && <RosterView session={s} />}
+          {tab === 'prison' && <PrisonView session={s} />}
         </div>
       </main>
 
-      <ChronicleView entries={s.logEntries(60)} />
+      <ChronicleView session={s} />
 
-      {s.pending && <EventModal event={s.pending} onChoose={(i) => commit(() => s.Choose(i))} />}
-      {s.isOver && <GameOver reason={s.overReason} session={s} onNewGame={abandon} />}
+      {s.isOver && <GameOver session={s} reason={s.overReason} onNewGame={abandon} />}
     </div>
   );
 }

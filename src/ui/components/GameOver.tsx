@@ -1,38 +1,25 @@
+import type { GameSession } from '../../engine/core/GameSession';
+
 interface Props {
-  reason: string;
-  session: { dateLabel: () => string; stats: () => { incidentsHandled: number; incidentsFailed: number; heroesLost: number; scandals: number } };
+  session: GameSession;
+  reason: string | null;
   onNewGame: () => void;
 }
 
-export function GameOver({ reason, session, onNewGame }: Props) {
-  const st = session.stats();
+export function GameOver({ session, reason, onNewGame }: Props) {
   return (
-    <div className="modal-backdrop">
-      <div className="modal gameover">
-        <h2 className="modal-title">The run ends</h2>
-        <p className="modal-text">{reason}</p>
-        <p className="modal-text dim">It lasted until {session.dateLabel()}.</p>
-        <ul className="final-stats">
-          <li>
-            <span>Incidents handled</span>
-            <strong>{st.incidentsHandled}</strong>
-          </li>
-          <li>
-            <span>Incidents missed</span>
-            <strong>{st.incidentsFailed}</strong>
-          </li>
-          <li>
-            <span>Heroes lost</span>
-            <strong>{st.heroesLost}</strong>
-          </li>
-          <li>
-            <span>Scandals</span>
-            <strong>{st.scandals}</strong>
-          </li>
-        </ul>
-        <button className="primary" onClick={onNewGame}>
-          Start again
-        </button>
+    <div className="overlay">
+      <div className="report">
+        <h2 className="loss">The city falls</h2>
+        <p className="muted">{reason ?? 'Vigilant has no guardian left.'}</p>
+        <p className="muted small">
+          You answered {session.turn} {session.turn === 1 ? 'call' : 'calls'}.
+        </p>
+        <div className="picker-actions">
+          <button className="primary" onClick={onNewGame} type="button">
+            Another city
+          </button>
+        </div>
       </div>
     </div>
   );
