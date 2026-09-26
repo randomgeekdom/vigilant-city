@@ -4,7 +4,14 @@ import { POWER_SET_DEFS } from '../../engine/data/powersets';
 import { APPROACH_DEFS } from '../../engine/data/approaches';
 import { DIFFICULTY_DEFS } from '../../engine/data/difficulty';
 import { CELL_DEFS } from '../../engine/data/cells';
+import { trustFill, type TrustVerdict } from '../../engine/data/reputation';
 import type { HeroData } from '../../engine/core/types';
+
+const TRUST_READING: Record<TrustVerdict, string> = {
+  held: 'The city still believes in us. It is not asking where the victories went yet.',
+  slipping: 'The city is starting to ask where the victories went.',
+  failing: 'Under the floor. Nobody is coming to our door, and the ones already answering are deciding for themselves.',
+};
 
 interface Props {
   session: GameSession;
@@ -13,6 +20,9 @@ interface Props {
 
 export function RosterView({ session, onDisclose }: Props) {
   const playerId = session.playerHero?.id;
+  const trust = session.trust;
+  const floor = session.trustFloor;
+  const verdict = session.trustState;
   return (
     <div className="panel">
       <h2>Heroes</h2>
@@ -20,6 +30,23 @@ export function RosterView({ session, onDisclose }: Props) {
         You do not command these people. They answer when the city calls. What you do is decide which
         of them is left standing when you get back.
       </p>
+
+      <div className={`trust trust-${verdict}`}>
+        <div className="label">City trust</div>
+        <div className="secrecy-bar">
+          <span>{trust}</span>
+          <div className="bar">
+            <div className="fill" style={{ width: `${trustFill(trust, floor)}%` }} />
+          </div>
+          <span className="muted">floor {floor}</span>
+        </div>
+        <div className="muted small">{TRUST_READING[verdict]}</div>
+        <div className="muted small">
+          Every reputation above, added up. Not one of them can carry a city that has stopped
+          believing in the rest.
+        </div>
+      </div>
+
       <div className="hero-list">
         {session.allHeroes.map((hero) => (
           <HeroCard key={hero.id} hero={hero} isPlayer={hero.id === playerId} onDisclose={onDisclose} />
@@ -100,7 +127,7 @@ function HeroCard({
         )}
         <div className="hero-actions">
           {!hero.identity.exposed && !hero.identity.disclosed && (
-            <button onClick={() => onDisclose(hero.id)} type="button" title="Take the mask off on purpose. Costs reputation now, buys legitimacy forever.">
+            <button onClick={() => onDisclose(hero.id)} type="button" title="Take the mask off on purpose. Costs 15 reputation now, buys legitimacy forever — and 15 is most of what the city is holding in trust.">
               Go public
             </button>
           )}

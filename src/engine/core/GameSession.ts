@@ -6,6 +6,7 @@ import { DISTRICT_LABELS, DISTRICTS } from '../data/districts';
 import { INCIDENT_TYPE_DEFS } from '../data/incidentTypes';
 import { ORIGIN_DEFS } from '../data/origins';
 import { POWER_SET_DEFS } from '../data/powersets';
+import { rosterTrust, TRUST_LOST, trustFloor as requiredTrust, trustVerdict, type TrustVerdict } from '../data/reputation';
 import { CELL_DEFS } from '../data/cells';
 import type { OrganizationData } from '../data/organizations';
 import {
@@ -192,6 +193,20 @@ export class GameSession {
 
   get history(): readonly string[] {
     return this.state.history;
+  }
+
+  /** The city's opinion of the whole roster, summed. Derived, never stored. */
+  get trust(): number {
+    return rosterTrust(this.state.heroRoster);
+  }
+
+  /** What the city needs to keep believing in us. Rises with the roster it is relying on. */
+  get trustFloor(): number {
+    return requiredTrust(this.state.heroRoster.length);
+  }
+
+  get trustState(): TrustVerdict {
+    return trustVerdict(this.trust, this.trustFloor);
   }
 
   // ---------- the core action ----------
@@ -746,6 +761,15 @@ export class GameSession {
     if (this.state.heroRoster.length === 0) {
       this.state.over = true;
       this.state.overReason = 'No hero remains. Vigilant falls.';
+      return;
+    }
+    // The other way to lose the city: not one villain taking it, but the city
+    // deciding it never wanted a guardian. The sum can go under while every
+    // individual hero still looks like they are coping.
+    if (this.trust < this.trustFloor) {
+      this.state.over = true;
+      this.state.overReason = TRUST_LOST;
+      this.note(TRUST_LOST);
     }
   }
 

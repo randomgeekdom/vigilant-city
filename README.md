@@ -8,9 +8,9 @@ Built on the same stack as [Realms](../realms): Electron 33 + Vite 6 + React 18 
 
 ## Status
 
-Playable. Core loop, the villain focus economy, metapolitics and secret identity are built and covered
-by the headless playtest. See [DESIGN.md](./DESIGN.md) for the full spec; §10 has the villain economy and
-the balance data behind it.
+Playable. Core loop, the villain focus economy, the city trust floor, metapolitics and secret identity
+are built and covered by the headless playtest. See [DESIGN.md](./DESIGN.md) for the full spec; §10 has the
+villain economy and the balance data behind it, §11.1 the reputation floor.
 
 ## Run it
 
@@ -46,13 +46,18 @@ That arithmetic sets the board's equilibrium at about six simultaneous villains;
 ones keep arriving, so holding the line means periodically deciding who to finish off — which is itself
 an act of neglect. **At 100 influence a villain has won and the run ends.**
 
+There is a second way to lose, and it is not a person. The city's trust is every hero's reputation added
+up, and under **−3 per guardian on the roster** the city stops believing in its guardians and the run
+ends. Nothing new feeds it — it moves on work answered, covers blown, and crimes nobody showed up for —
+so it is a clock you keep honest by answering calls, not a second resource to manage.
+
 You can also **hunt** someone directly, any time, even when they are not committing a crime. It costs a
 full turn and knocks back 1.4× — it took the whole night. Without it, a villain closest to winning would
 be completely unreachable.
 
-The playtest measures three strategies over 200 seeds: never intervening averages 104 turns, attending
-random incidents averages 84, and **focusing on whoever is closest to winning averages 225 with 16
-survivors**. Aimless heroics is measurably worse than doing nothing.
+The playtest measures three strategies over 200 seeds: never intervening averages 54 turns, attending
+random incidents averages 59, and **focusing on whoever is closest to winning averages 142 with 6
+survivors**. Aimless heroics is barely better than doing nothing.
 
 ## Systems
 
@@ -63,6 +68,7 @@ survivors**. Aimless heroics is measurably worse than doing nothing.
 | **Cascading failure** | A failing hero sheds a manifestation, then a power, then dies. Failure costs capability, not health. |
 | **Approaches** | Diplomatic / Lethal / Stealthy / Swift / Tactical. Pick exactly two. Lethal kills; everything else imprisons. |
 | **Villains** | The second board. Influence, external backers, and a hunt action. |
+| **City trust** | The roster's reputations, summed, against a floor. The other way to lose: the city stops believing in its guardians. |
 | **Inheritance** | When your hero dies, you become another. The city still needs a guardian. |
 | **Secret identity** | A job and specific people are at stake. Exposure is rolled, not narrated. Disclosure is a real counter-strategy. |
 | **Metapolitics** | Origin decides a hero's politics. Cells recruit by conduct; external organisations warp incident modifiers. |
@@ -87,6 +93,8 @@ src/
       difficulty.ts           4 difficulty tiers (d20 targets 5/10/15/20)
       districts.ts            9 fixed districts
       incidentTypes.ts        5 incident types + per-approach modifier shapes
+      villains.ts             influence tiers, knockback, hunting multiplier
+      reputation.ts           city trust: the roster sum, its floor, its verdict
       cells.ts                4 metapolitical cells, origin -> cell
       organizations.ts        external organisation templates
       civilian.ts             civilian jobs and ties

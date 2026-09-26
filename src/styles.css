@@ -268,6 +268,13 @@ input:focus {
 .stat-row strong {
   color: var(--ink);
 }
+/* .stat-row strong outranks the bare tone classes, so the tones need the same weight. */
+.stat-row strong.warn {
+  color: var(--warn);
+}
+.stat-row strong.bad {
+  color: var(--bad);
+}
 
 .sidebar-actions {
   margin-top: auto;
@@ -590,6 +597,39 @@ input:focus {
   font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+
+/* The roster-wide clock: the city's opinion of everyone at once. */
+.trust {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 10px 12px;
+  margin: 12px 0;
+  font-size: 12.5px;
+}
+.trust-slipping {
+  border-color: var(--warn);
+}
+.trust-slipping .label,
+.trust-slipping .secrecy-bar {
+  color: var(--warn);
+}
+.trust-failing {
+  border-color: var(--bad);
+}
+.trust-failing .label,
+.trust-failing .secrecy-bar {
+  color: var(--bad);
+}
+.trust-failing .bar .fill {
+  background: var(--bad);
+}
+.trust-slipping .bar .fill {
+  background: var(--warn);
+}
+.trust .small + .small {
+  margin-top: 5px;
 }
 .bar {
   flex: 1;

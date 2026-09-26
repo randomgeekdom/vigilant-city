@@ -13,6 +13,8 @@ export function Sidebar({ session, onSave, onLoad, onNewGame }: Props) {
   const hero = session.playerHero;
   if (!hero) return null;
   const power = hero.powers[0];
+  const trust = session.trust;
+  const trustTone = session.trustState === 'failing' ? 'bad' : session.trustState === 'slipping' ? 'warn' : '';
 
   return (
     <aside className="sidebar">
@@ -39,6 +41,15 @@ export function Sidebar({ session, onSave, onLoad, onNewGame }: Props) {
       <div className="stat-row">
         <span>Open</span>
         <strong>{session.openIncidents.length}</strong>
+      </div>
+      <div className="stat-row">
+        <span>City trust</span>
+        <strong
+          className={trustTone}
+          title={`The city's opinion of the whole roster, summed. At ${session.trustFloor} it stops believing in us and the run ends.`}
+        >
+          {trust}
+        </strong>
       </div>
       <div className="stat-row">
         <span>Reputation</span>

@@ -13,7 +13,8 @@ import { POWER_SETS, type PowerSet } from './data/powersets';
 import { POWER_ORIGINS, type PowerOrigin } from './data/origins';
 import { Random } from './core/Random';
 import { ideologyModifier } from './core/politics';
-import { BACKED_PENALTY, HUNT_MULTIPLIER, INFLUENCE_ON_SUCCESS } from './data/villains';
+import { rosterTrust, TRUST_FLOOR_PER_HERO, TRUST_LOST, trustFloor } from './data/reputation';
+import { BACKED_PENALTY, HUNT_MULTIPLIER, INFLUENCE_ON_SUCCESS, MAX_INFLUENCE } from './data/villains';
 
 let failures = 0;
 
@@ -296,26 +297,78 @@ console.log('attention is the whole game');
     let total = 0;
     let survived = 0;
     let maxTurns = 0;
+    let onTrust = 0;
     for (let seed = 1; seed <= 200; seed += 1) {
       const s = playRun(seed * 7919, 600, strategy === 'neglect' ? 'neglect' : strategy);
       total += s.turn;
       maxTurns = Math.max(maxTurns, s.turn);
       if (!s.isOver) survived += 1;
+      if (s.overReason === TRUST_LOST) onTrust += 1;
     }
-    return { avg: Math.round(total / 200), survived, maxTurns };
+    return { avg: Math.round(total / 200), survived, maxTurns, onTrust };
   };
   const neglect = measure('neglect');
   const spread = measure('random');
   const focus = measure('focus');
-  console.log(`  info never intervening:  avg ${neglect.avg} turns, ${neglect.survived}/200 survived`);
-  console.log(`  info spreading attention: avg ${spread.avg} turns, ${spread.survived}/200 survived`);
-  console.log(`  info focused attention:  avg ${focus.avg} turns, ${focus.survived}/200 survived (longest ${focus.maxTurns})`);
+  console.log(`  info never intervening:  avg ${neglect.avg} turns, ${neglect.survived}/200 survived, ${neglect.onTrust} on trust`);
+  console.log(`  info spreading attention: avg ${spread.avg} turns, ${spread.survived}/200 survived, ${spread.onTrust} on trust`);
+  console.log(`  info focused attention:  avg ${focus.avg} turns, ${focus.survived}/200 survived, ${focus.onTrust} on trust (longest ${focus.maxTurns})`);
 
   check('focusing beats spreading', focus.avg > spread.avg, `${focus.avg} vs ${spread.avg}`);
   check('focusing beats doing nothing at all', focus.avg > neglect.avg, `${focus.avg} vs ${neglect.avg}`);
   check('aimless intervention is not a strategy', spread.avg <= neglect.avg + 10, `${spread.avg} vs ${neglect.avg}`);
   check('focusing is the only route to survival', focus.survived > 0 && spread.survived === 0, `${focus.survived} vs ${spread.survived}`);
   check('the game is not trivially winnable by focusing alone', focus.survived < 200, `${focus.survived}/200 survived`);
+}
+
+console.log("the city's trust");
+{
+  const { session } = GameSession.newGame({
+    realName: 'Trust Test',
+    alias: 'Trust Test',
+    powerSet: 'Flight',
+    origin: 'genetic',
+    seed: 6161,
+  });
+
+  // Trust is the roster sum, not a counter that can quietly drift away from it.
+  const summed = session.allHeroes.reduce((n, h) => n + h.reputation, 0);
+  check('trust is the sum of the roster', session.trust === summed, `${session.trust} vs ${summed}`);
+  check('the engine and the rules agree on that sum', rosterTrust(session.allHeroes) === summed);
+  check('a fresh city starts above the floor', session.trust > session.trustFloor, `${session.trust} vs ${session.trustFloor}`);
+  check('the floor is a debt, not a surplus', TRUST_FLOOR_PER_HERO < 0, `${TRUST_FLOOR_PER_HERO}`);
+  check('a bigger roster is a bigger promise', trustFloor(5) < trustFloor(3), `${trustFloor(3)} -> ${trustFloor(5)}`);
+
+  // What actually empties the city is unattended work: the whole roster takes
+  // that hit, which is why one bad night is survivable and a hundred are not.
+  const { session: idle } = GameSession.newGame({
+    realName: 'Nobody There',
+    alias: 'Nobody There',
+    powerSet: 'Flight',
+    origin: 'genetic',
+    seed: 1717,
+  });
+  let sawBleed = false;
+  let trustEnded = false;
+  let worstVillain = 0;
+  for (let turn = 0; turn < 400 && !idle.isOver; turn += 1) {
+    const before = idle.trust;
+    idle.patrol();
+    if (idle.trust < before) sawBleed = true;
+    if (idle.overReason === TRUST_LOST) {
+      trustEnded = true;
+      worstVillain = Math.max(0, ...idle.villains.filter((v) => v.status === 'active').map((v) => v.influence));
+    }
+  }
+  check('a night when nobody answers costs the city standing', sawBleed);
+  check('the city can stop believing in its guardians', trustEnded, `ended at turn ${idle.turn}: ${idle.overReason}`);
+  // The two clocks are independent. Losing the city is not the same failure as
+  // handing it to a villain, and a run has to be able to end on either.
+  check(
+    'losing the city is not the same as losing it to a villain',
+    trustEnded && worstVillain < MAX_INFLUENCE,
+    `worst active villain at ${worstVillain}`,
+  );
 }
 
 console.log('rider sweeps');

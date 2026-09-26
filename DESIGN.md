@@ -280,30 +280,77 @@ exists, and resolving one applies pressure to nobody. This was a real bug found 
 
 ### 10.3 What the playtest actually says
 
-Three strategies, 200 seeds each, 600-turn cap:
+Three strategies, 200 seeds each, 600-turn cap. The last column is how many of those runs ended on the
+city losing faith rather than on a villain taking it (§11.1):
 
-| Strategy | Mean run | Survived |
-| --- | --- | --- |
-| Never intervene, just patrol | 104 turns | 0/200 |
-| Attend a random incident | 84 turns | 0/200 |
-| **Focus on whoever is closest to winning** | **225 turns** | **16/200** |
+| Strategy | Mean run | Survived | Ended on trust |
+| --- | --- | --- | --- |
+| Never intervene, just patrol | 54 turns | 0/200 | 118 |
+| Attend a random incident | 59 turns | 0/200 | 81 |
+| **Focus on whoever is closest to winning** | **142 turns** | **6/200** | 108 |
 
 Two results worth keeping:
 
-1. **Focusing is the only route to survival, and it is not close.** 225 vs 84 is the whole design
+1. **Focusing is the only route to survival, and it is not close.** 142 vs 59 is the whole design
    functioning as intended.
-2. **Aimless intervention is clearly worse than doing nothing** (84 vs 104). Turning up and reacting is
+2. **Aimless intervention is barely better than doing nothing** (59 vs 54). Turning up and reacting is
    not a strategy here: you feed every villain you were not aiming at and you take the cascading
    damage on your own hero. The game punishes heroics that are not directed.
 
-Focused play still loses 184/200, so the run is not a formality — but it is winnable by playing well,
-which is the correct shape.
+Focused play still loses 194/200, so the run is not a formality — but it is winnable by playing well,
+which is the correct shape. Note that focusing buys *time*, not safety: it is the only strategy that
+survives long enough to run into the trust floor, and 108 of its 194 losses are there rather than in a
+fight with a villain.
 
 ## 11. Win / loss
 
 - A villain reaching Imminent ends the run: the city answers to them.
+- The city losing faith in the roster ends the run: nobody is left who answers.
 - Your hero dying hands the city to whoever is left; dying with nobody left ends it too.
-- Not yet modelled: a reputation floor across the roster, and specific villains with named ends.
+- Not yet modelled: specific villains with named ends.
+
+### 11.1 The reputation floor
+
+The other way to lose is not a person taking the city. It is the city deciding it never wanted a
+guardian. Every hero's reputation is the city's opinion of that hero and the roster's **trust** is the
+sum of them, so a roster can bleed out while every individual hero still looks acceptable — and one
+spectacular hero cannot carry a city that has stopped believing in the rest of them.
+
+**Trust is not a second resource.** Nothing new feeds it. It moves for the three reasons it has always
+moved for — work answered (up or down), a cover blown (−5), and crimes nobody showed up for (−1 to
+*every* hero on the roster). The floor is what makes those consequences cost something at the end, and
+it is the piece that was missing.
+
+```
+floor = -3 x heroes on the roster
+```
+
+Three points of debt **per guardian**, so a bigger roster is a bigger promise rather than four people
+inheriting the credit for one. It is negative because goodwill is a debt: the city starts willing to
+give you the benefit of the doubt and only asks for it back after you fail. A new run starts at 0 with a
+floor of −9, so there are nine points of slack to spend.
+
+What the playtest found is that this is a **patience clock, not a skill clock**, and that is the more
+interesting result. Trust at the end of a run sits in a narrow band (median ≈ −10) whether you focused,
+spread your attention, or never intervened at all — the bleed is driven by how much damage the city has
+taken, not by how cleverly you took it. What skill buys is *time*: focused play meets the floor at turn
+~102, aimless play at ~42. So the floor does not add a skill test, it adds the sentence the whole design
+has been circling: **you can survive any single crisis, but you cannot keep doing this for two hundred
+nights.** Long runs now die of exhaustion rather than conquest, and 108/200 focused runs end that way.
+
+Two consequences worth keeping:
+
+1. **The two clocks are independent, and a run can end on either.** The playtest asserts a run that
+   ended on trust with its worst active villain nowhere near 100. Losing the city is a different failure
+   from handing it to someone, and a design that only had the first would have a single failure mode.
+2. **Going public is now a gamble against the floor.** Disclosure costs 15 reputation, which is most of
+   what the city is holding in trust. It is still the right play for a hero whose cover is already gone,
+   and it can be the thing that ends the run for a hero whose cover is not. The meter says so out loud.
+
+Attrition cuts both ways: a hero who quits or dies takes their standing out of the sum with them, so
+losing people at a deficit can *raise* trust while making the villain board far more dangerous. That is
+not a special case in the code, it just falls out of a sum, and it is the sort of thing a player should
+be allowed to discover.
 
 
 ## 12. Tech
