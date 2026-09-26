@@ -114,6 +114,14 @@ export function App() {
     return out!;
   };
 
+  const hunt = (villainId: string, a: Approach, b: Approach): ResolutionReport => {
+    let out: ResolutionReport | null = null;
+    commit(() => {
+      out = s.huntVillain(villainId, a, b);
+    });
+    return out!;
+  };
+
   return (
     <div className="app">
       <Sidebar
@@ -145,7 +153,12 @@ export function App() {
 
         <div className="tab-body">
           {tab === 'city' && (
-            <CityView session={s} onResolve={resolve} onPatrol={() => commit(() => s.patrol())} />
+            <CityView
+              session={s}
+              onResolve={resolve}
+              onHunt={hunt}
+              onPatrol={() => commit(() => s.patrol())}
+            />
           )}
           {tab === 'roster' && (
             <RosterView session={s} onDisclose={(id) => commit(() => s.disclose(id))} />

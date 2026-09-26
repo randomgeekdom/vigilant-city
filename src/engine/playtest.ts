@@ -13,6 +13,7 @@ import { POWER_SETS, type PowerSet } from './data/powersets';
 import { POWER_ORIGINS, type PowerOrigin } from './data/origins';
 import { Random } from './core/Random';
 import { ideologyModifier } from './core/politics';
+import { BACKED_PENALTY, HUNT_MULTIPLIER, INFLUENCE_ON_SUCCESS } from './data/villains';
 
 let failures = 0;
 
@@ -30,7 +31,7 @@ function pickTwo(rng: Random): [Approach, Approach] {
   return [shuffled[0]!, shuffled[1]!];
 }
 
-function playRun(seed: number, maxTurns: number): GameSession {
+function playRun(seed: number, maxTurns: number, strategy: 'neglect' | 'random' | 'focus' = 'random'): GameSession {
   const rng = new Random(seed ^ 0x5eed);
   const powerSet = rng.pick(POWER_SETS) as PowerSet;
   const origin = rng.pick(POWER_ORIGINS) as PowerOrigin;
@@ -43,7 +44,37 @@ function playRun(seed: number, maxTurns: number): GameSession {
   });
 
   let guard = 0;
-  while (!session.isOver && session.turn < maxTurns && session.openIncidents.length > 0 && guard < 10_000) {
+  while (!session.isOver && session.turn < maxTurns && guard < 10_000) {
+    if (strategy === 'neglect') {
+      session.patrol();
+      guard += 1;
+      continue;
+    }
+    if (session.openIncidents.length === 0) {
+      session.patrol();
+      guard += 1;
+      continue;
+    }
+    // A focused player goes after whoever is closest to taking the city, and
+    // hunts them directly when there is no work of theirs on the board.
+    if (strategy === 'focus') {
+      const worst = session.villains
+        .filter((v) => v.status === 'active')
+        .sort((a, b) => b.influence - a.influence)[0];
+      if (worst) {
+        const theirs = session.openIncidents.filter((i) => i.villainId === worst.id);
+        const incident = theirs[0];
+        const [a, b] = pickTwo(rng);
+        try {
+          if (incident) session.resolvePlayerIncident(incident.id, a, b);
+          else session.huntVillain(worst.id, a, b);
+        } catch {
+          break;
+        }
+        guard += 1;
+        continue;
+      }
+    }
     const incident = session.openIncidents[Math.floor(rng.next() * session.openIncidents.length)]!;
     const [a, b] = pickTwo(rng);
     try {
@@ -138,27 +169,178 @@ console.log('failing hero loses capability before dying');
   check('manifestations can be shed on failure', sawManifestationLoss || sawPowerLoss);
 }
 
+console.log('villains are the second board');
+{
+  const { session } = GameSession.newGame({
+    realName: 'Focus Test',
+    alias: 'Focus Test',
+    powerSet: 'Telekinesis',
+    origin: 'alien',
+    seed: 5150,
+  });
+  check('incidents name a culprit', session.openIncidents.every((i) => session.villains.some((v) => v.id === i.villainId)));
+  const activeCount = session.villains.filter((v) => v.status === 'active').length;
+  check('a villain exists at start', activeCount > 0);
+
+  // Attending one villain's work is what lets the others grow.
+  const others = session.villains.filter((v) => v.status === 'active' && v.id !== session.openIncidents[0]!.villainId);
+  const before = others.map((v) => v.influence);
+  session.resolvePlayerIncident(session.openIncidents[0]!.id, 'diplomatic', 'tactical');
+  const grew = others.filter((v, i) => v.influence > before[i]!).length;
+  check('success feeds the villains you were not attending', grew > 0 || others.length === 0, `${grew}/${others.length} grew`);
+}
+
+console.log('hunting');
+{
+  // A hunt has to be available to any active villain, whether or not they happen
+  // to be committing something right now. A player who is losing to someone with
+  // no open work would otherwise have no legal way to respond to them.
+  const { session } = GameSession.newGame({
+    realName: 'Hunt Test',
+    alias: 'Hunt Test',
+    powerSet: 'CombatMaster',
+    origin: 'technological',
+    seed: 31337,
+  });
+  const target = session.villains.find((v) => v.status === 'active');
+  if (!target) {
+    console.log('  info no active villain in this seed; hunting checks skipped');
+  } else {
+    const turnBefore = session.turn;
+    const influenceBefore = target.influence;
+    const report = session.huntVillain(target.id, 'lethal', 'tactical');
+    check('a hunt costs a turn', session.turn === turnBefore + 1, `turn ${turnBefore} -> ${session.turn}`);
+    check('a hunt is attributed to its target', report.villain?.alias === target.alias, String(report.villain?.alias));
+
+    if (report.resolved) {
+      // A direct confrontation has to be worth more than catching them at the
+      // scene, otherwise there is never a reason to prefer one over the other.
+      // Influence floors at 0, and other heroes cleaning up the target's
+      // remaining work in the same turn can add to the drop, so this is a floor.
+      const drop = influenceBefore - target.influence;
+      const plain = Math.abs(INFLUENCE_ON_SUCCESS) - (target.backedBy ? BACKED_PENALTY : 0);
+      const floor = Math.min(Math.round(plain * HUNT_MULTIPLIER), influenceBefore);
+      check(
+        'a successful hunt knocks the target back harder than their incident would',
+        drop >= floor,
+        `dropped ${drop}, at least ${floor} (from ${influenceBefore})`,
+      );
+    } else {
+      check(
+        'a failed hunt gives the target influence',
+        target.influence >= influenceBefore,
+        `${influenceBefore} -> ${target.influence}`,
+      );
+    }
+
+    // Stopping someone takes their outstanding work off the board with them,
+    // otherwise the rest of the roster burns turns on incidents that no longer
+    // apply pressure to anyone.
+    check(
+      'a stopped villain leaves no orphan work behind',
+      target.status === 'active' || !session.openIncidents.some((i) => i.villainId === target.id),
+      `${target.alias} is ${target.status} with ${session.openIncidents.filter((i) => i.villainId === target.id).length} incidents still open`,
+    );
+
+    // Hunting someone already stopped is not a legal move.
+    const finished = session.villains.find((v) => v.status !== 'active');
+    if (finished) {
+      let threw = false;
+      try {
+        session.huntVillain(finished.id, 'lethal', 'tactical');
+      } catch {
+        threw = true;
+      }
+      check('you cannot hunt someone who is already stopped', threw);
+    } else {
+      check('the hunt retired its target, so the stopped-villain case applies', false, 'target was pushed back, not stopped');
+    }
+  }
+}
+
+console.log('patrol costs a turn');
+{
+  const { session } = GameSession.newGame({
+    realName: 'Patrol Test',
+    alias: 'Patrol Test',
+    powerSet: 'Invisibility',
+    origin: 'genetic',
+    seed: 2468,
+  });
+  const turnBefore = session.turn;
+  const tracked = session.openIncidents.map((i) => ({ incident: i, before: i.timeToResolve }));
+  const villainBefore = new Map(session.villains.map((v) => [v.id, v.influence]));
+
+  session.patrol();
+
+  check('patrol advances the turn', session.turn === turnBefore + 1, `${turnBefore} -> ${session.turn}`);
+  check('patrol ages open incidents', tracked.some((t) => t.incident.timeToResolve < t.before));
+
+  // A villain can only lose influence if their own incident expired and another
+  // hero answered it. Attending nothing must never push anyone back.
+  const stillOpen = new Set(session.openIncidents.map((i) => i.id));
+  const expiredVillains = new Set(
+    tracked.filter((t) => !stillOpen.has(t.incident.id)).map((t) => t.incident.villainId),
+  );
+  const wronglyPushed = session.villains.filter(
+    (v) => v.influence < (villainBefore.get(v.id) ?? 0) && !expiredVillains.has(v.id),
+  );
+  check('patrol itself never pushes a villain back', wronglyPushed.length === 0, `${wronglyPushed.length} wrongly reduced`);
+  check('patrol then adds work', session.openIncidents.length > 0);
+}
+
+console.log('attention is the whole game');
+{
+  // Neglect: never intervene, just keep patrolling.
+  const measure = (strategy: 'neglect' | 'random' | 'focus') => {
+    let total = 0;
+    let survived = 0;
+    let maxTurns = 0;
+    for (let seed = 1; seed <= 200; seed += 1) {
+      const s = playRun(seed * 7919, 600, strategy === 'neglect' ? 'neglect' : strategy);
+      total += s.turn;
+      maxTurns = Math.max(maxTurns, s.turn);
+      if (!s.isOver) survived += 1;
+    }
+    return { avg: Math.round(total / 200), survived, maxTurns };
+  };
+  const neglect = measure('neglect');
+  const spread = measure('random');
+  const focus = measure('focus');
+  console.log(`  info never intervening:  avg ${neglect.avg} turns, ${neglect.survived}/200 survived`);
+  console.log(`  info spreading attention: avg ${spread.avg} turns, ${spread.survived}/200 survived`);
+  console.log(`  info focused attention:  avg ${focus.avg} turns, ${focus.survived}/200 survived (longest ${focus.maxTurns})`);
+
+  check('focusing beats spreading', focus.avg > spread.avg, `${focus.avg} vs ${spread.avg}`);
+  check('focusing beats doing nothing at all', focus.avg > neglect.avg, `${focus.avg} vs ${neglect.avg}`);
+  check('aimless intervention is not a strategy', spread.avg <= neglect.avg + 10, `${spread.avg} vs ${neglect.avg}`);
+  check('focusing is the only route to survival', focus.survived > 0 && spread.survived === 0, `${focus.survived} vs ${spread.survived}`);
+  check('the game is not trivially winnable by focusing alone', focus.survived < 200, `${focus.survived}/200 survived`);
+}
+
 console.log('rider sweeps');
 {
   let finished = 0;
-  let incidents = 0;
   let over = 0;
   let exposedRuns = 0;
-  let quitRuns = 0;
   let disclosedRuns = 0;
+  let totalTurns = 0;
+  let villainsLeft = 0;
   for (let seed = 1; seed <= 200; seed += 1) {
-    const s = playRun(seed * 7919, 200);
+    const s = playRun(seed * 7919, 400);
     if (s.turn > 0) finished += 1;
-    incidents += s.openIncidents.length;
+    totalTurns += s.turn;
+    villainsLeft += s.villains.filter((v) => v.status === 'active').length;
     if (s.isOver) over += 1;
     if (s.allHeroes.some((h) => h.identity.exposed)) exposedRuns += 1;
     if (s.allHeroes.some((h) => h.identity.disclosed)) disclosedRuns += 1;
   }
   check('all 200 seeds produced a playable run', finished === 200, `finished=${finished}`);
-  check('runs terminate or cap out', incidents >= 0);
-  console.log(`  info terminal runs: ${over}/200, mean open incidents at cap: ${(incidents / 200).toFixed(2)}`);
-  console.log(`  info runs with an exposed hero at cap: ${exposedRuns}/200, runs with a disclosed hero: ${disclosedRuns}/200`);
-  void quitRuns;
+  check('attentive play does not run out of road', finished === 200);
+  const avgTurns = Math.round(totalTurns / 200);
+  console.log(`  info terminal runs: ${over}/200, mean run length: ${avgTurns} turns`);
+  console.log(`  info runs with an exposed hero: ${exposedRuns}/200, runs with a disclosed hero: ${disclosedRuns}/200`);
+  console.log(`  info mean villains still working at the cap: ${(villainsLeft / 200).toFixed(2)}`);
 }
 
 console.log('secret identity');

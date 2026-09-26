@@ -48,8 +48,19 @@ export function TurnReport({ report, onDismiss }: Props) {
           </p>
         )}
         {report.villain && (
-          <p className="muted">
-            {report.villain.killed ? 'Killed' : 'Imprisoned'}: <strong>{report.villain.alias}</strong>
+          <p className={report.villain.pushedBack ? 'muted' : 'gain'}>
+            {report.villain.killed
+              ? 'Killed'
+              : report.villain.pushedBack
+                ? `Pushed back`
+                : 'Imprisoned'}
+            : <strong>{report.villain.alias}</strong>
+            {report.villain.pushedBack && (
+              <>
+                {' '}
+                — still working, down to {Math.max(0, report.villain.influence)} influence
+              </>
+            )}
           </p>
         )}
         <p className="muted small">Reputation {report.reputationDelta >= 0 ? '+' : ''}{report.reputationDelta}</p>

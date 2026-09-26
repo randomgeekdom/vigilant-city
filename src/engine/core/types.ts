@@ -22,7 +22,13 @@ export interface ManifestationData {
 
 export type VillainStatus = 'active' | 'imprisoned' | 'dead';
 
-export type VillainData = CharacterData & { status: VillainStatus };
+export interface VillainData extends CharacterData {
+  status: VillainStatus;
+  /** 0-100. Grows every turn this villain is left unattended. The real clock. */
+  influence: number;
+  /** The cell, if any, standing behind them. They consolidate faster. */
+  backedBy: CellId | null;
+}
 
 export interface CharacterData {
   id: string;
@@ -68,6 +74,8 @@ export interface IncidentData {
   timeToResolve: number;
   difficulty: DifficultyLevel;
   approachModifiers: Record<Approach, number>;
+  /** Who is behind this. Attending it pushes them back; ignoring it feeds them. */
+  villainId: string;
 }
 
 export interface CitySnapshot {
@@ -103,7 +111,7 @@ export interface ResolutionReport {
   reputationDelta: number;
   consequence: string | null;
   died: boolean;
-  villain: { alias: string; killed: boolean } | null;
+  villain: { alias: string; killed: boolean; pushedBack: boolean; influence: number } | null;
   collateral: CollateralResolution[];
   /** Set when this resolution put a civilian life at risk or destroyed it. */
   identityEvent: IdentityEvent | null;
@@ -126,4 +134,5 @@ export interface CollateralResolution {
   consequence: string | null;
 }
 
-export const SNAPSHOT_VERSION = 2;
+/** v3: villains became the second board (influence, backing) and incidents name a culprit. */
+export const SNAPSHOT_VERSION = 3;

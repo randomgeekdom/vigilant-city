@@ -1,13 +1,22 @@
 import { Random } from './Random';
 import { CharacterFactory, IncidentFactory } from './CharacterFactory';
 import { APPROACHES, type Approach } from '../data/approaches';
-import { difficultyModifier, difficultyRoll } from '../data/difficulty';
-import { DISTRICT_LABELS } from '../data/districts';
+import { difficultyModifier, difficultyRoll, type DifficultyLevel } from '../data/difficulty';
+import { DISTRICT_LABELS, DISTRICTS } from '../data/districts';
 import { INCIDENT_TYPE_DEFS } from '../data/incidentTypes';
 import { ORIGIN_DEFS } from '../data/origins';
 import { POWER_SET_DEFS } from '../data/powersets';
 import { CELL_DEFS } from '../data/cells';
 import type { OrganizationData } from '../data/organizations';
+import {
+  DIVERTED_GROWTH,
+  HUNT_MULTIPLIER,
+  INFLUENCE_ON_FAILURE,
+  knockback,
+  MAX_INFLUENCE,
+  NEW_VILLAIN_CHANCE,
+  tierForInfluence,
+} from '../data/villains';
 import {
   damageTies,
   disclose as discloseHero,
@@ -208,7 +217,7 @@ export class GameSession {
     this.state.resolvedIncidentIds.push(incidentId);
     this.state.turn += 1;
 
-    const collateral = this.tickRemaining(player.id);
+    const collateral = this.collateral(player.id);
     report.collateral = collateral;
 
     this.state.alerts = this.buildAlerts(report);
@@ -235,10 +244,196 @@ export class GameSession {
     }
   }
 
-  /** The prototype's "Patrol": put fresh work on the board. */
+  /**
+   * The prototype's "Patrol". It costs a full turn: every open incident ticks,
+   * every unattended villain grows, and only then do you get the new work. Going
+   * looking for trouble is a real decision with a real price.
+   */
   patrol(): void {
     if (this.state.over) return;
+    const player = this.playerHero;
+    if (player) this.collateral(player.id);
+    this.state.turn += 1;
     this.spawnIncidents(1, 2);
+    this.cullBrokenHeroes();
+    this.topUpRoster();
+    this.checkTerminalState();
+  }
+
+  /**
+   * Everything that happens because the player spent a turn on one thing:
+   * other incidents age, unattended villains consolidate, and anyone who has
+   * taken too much starts leaving.
+   */
+  private collateral(playerHeroId: string): CollateralResolution[] {
+    const expired = this.tickRemaining(playerHeroId);
+    this.tickBoard();
+    return expired;
+  }
+
+  /**
+   * Nothing in the background gets worse. A villain only grows because the
+   * player spent this turn somewhere else, so escalation and new arrivals are
+   * all that happens on a turn where nobody's work was attended.
+   */
+  private tickBoard(): void {
+    for (const villain of this.state.villains) {
+      if (villain.status !== 'active') continue;
+      const tier = tierForInfluence(villain.influence);
+      if (tier.tier === 1) continue;
+      // A notable villain stops waiting for the city to make work for them.
+      if (this.rng.chance(0.3)) {
+        this.state.incidents.push(this.incidentFactory.createIncident(villain.id));
+        this.note(`${villain.alias} is seeding trouble in ${DISTRICT_LABELS[this.rng.pick(DISTRICTS)]}.`);      }
+    }
+
+    if (this.rng.chance(NEW_VILLAIN_CHANCE)) {
+      this.introduceVillain();
+    }
+  }
+
+  private introduceVillain(): VillainData {
+    const org = this.state.organizations.length > 0 ? this.rng.pick(this.state.organizations) : null;
+    const villain = this.characters.createVillain(this.rng, org?.ideology ?? null);
+    this.state.villains.push(villain);
+    this.note(
+      org
+        ? `${villain.alias} has moved into the city, and ${org.name} is behind them.`
+        : `${villain.alias} has moved into the city.`,
+    );
+    return villain;
+  }
+
+  /**
+   * Stopping one crime is what lets another villain get stronger. Attention is
+   * spent whether or not the work succeeded, so this runs on every resolution.
+   */
+  private divertAttention(fromVillainId: string): void {
+    for (const villain of this.state.villains) {
+      if (villain.status !== 'active' || villain.id === fromVillainId) continue;
+      this.raiseInfluence(villain, DIVERTED_GROWTH);
+    }
+  }
+
+  private raiseInfluence(villain: VillainData, delta: number): void {
+    const before = tierForInfluence(villain.influence);
+    villain.influence = Math.max(0, Math.min(MAX_INFLUENCE, villain.influence + delta));
+    const after = tierForInfluence(villain.influence);
+    if (after.tier === before.tier) return;
+    if (after.tier > before.tier) {
+      this.note(`${villain.alias} is now ${after.label}. ${after.effect}`);
+    }
+    if (after.tier >= 4) {
+      this.state.over = true;
+      this.state.overReason = `${villain.alias} is beyond stopping. Vigilant answers to them now.`;
+    }
+  }
+
+  /**
+   * Go after someone directly instead of waiting for their next crime.
+   *
+   * Without this, a villain who is closest to taking the city but has no open
+   * incident is completely unreachable — the player watches their influence
+   * climb and can do nothing. Hunting costs a turn like anything else, so the
+   * pacing rule still holds and hunting is itself a choice about what to neglect.
+   */
+  huntVillain(villainId: string, first: Approach, second: Approach): ResolutionReport {
+    if (this.state.over) throw new Error('run is over');
+    if (first === second) throw new Error('must choose two different approaches');
+    const villain = this.requireVillain(villainId);
+    if (villain.status !== 'active') throw new Error(`${villain.alias} is no longer working`);
+    const player = this.playerHero;
+    if (!player) throw new Error('no player hero');
+
+    const incident = this.synthesizeHunt(villain);
+    const approaches: [Approach, Approach] = [first, second];
+    const report = this.resolveIncidentFor(incident, player, approaches, true);
+    this.state.resolvedIncidentIds.push(incident.id);
+    this.state.turn += 1;
+    report.collateral = this.collateral(player.id);
+
+    this.state.alerts = this.buildAlerts(report);
+    this.cullBrokenHeroes();
+    this.topUpRoster();
+    this.checkTerminalState();
+    return report;
+  }
+
+  /** A confrontation with a named villain, dressed as an incident so it uses the same machinery. */
+  private synthesizeHunt(villain: VillainData): IncidentData {
+    const tier = tierForInfluence(villain.influence);
+    // The closer they are to winning, the worse the confrontation is — but a
+    // hunt has to stay winnable, or the player is punished for acting.
+    const difficulty: DifficultyLevel =
+      tier.tier >= 3 ? 'difficult' : tier.tier >= 2 ? 'average' : 'easy';
+    const approachModifiers = {} as Record<Approach, number>;
+    for (const a of APPROACHES) approachModifiers[a] = 0;
+    return {
+      id: this.allocateId('hunt'),
+      type: 'murder',
+      description: `A confrontation with ${villain.alias}, who has stopped waiting to be ambushed.`,
+      district: this.rng.pick(DISTRICTS),
+      timeToResolve: 1,
+      difficulty,
+      approachModifiers,
+      villainId: villain.id,
+    };
+  }
+
+  /**
+   * Once someone is stopped, their outstanding work stops too. Without this the
+   * board fills with incidents whose culprit no longer exists: they age, other
+   * heroes burn turns on them, and resolving one applies no pressure to anyone.
+   */
+  private clearVillainWork(villainId: string): void {
+    this.state.incidents = this.state.incidents.filter((i) => i.villainId !== villainId);
+  }
+
+  private requireVillain(villainId: string): VillainData {
+    const villain = this.state.villains.find((v) => v.id === villainId);
+    if (!villain) throw new Error(`no villain ${villainId}`);
+    return villain;
+  }
+
+  private villainBehind(incident: IncidentData): VillainData | null {
+    return this.state.villains.find((v) => v.id === incident.villainId && v.status === 'active') ?? null;
+  }
+
+  /**
+   * Success knocks them back. Failure is publicity. Either way it was their turn.
+   * A direct confrontation is worth more than cleaning up their latest crime,
+   * because it took the whole night rather than one incident.
+   */
+  private applyVillainPressure(
+    incident: IncidentData,
+    resolved: boolean,
+    usedLethal: boolean,
+    isHunt: boolean,
+  ): ResolutionReport['villain'] {
+    const villain = this.villainBehind(incident);
+    if (!villain) return null;
+
+    if (!resolved) {
+      this.raiseInfluence(villain, INFLUENCE_ON_FAILURE);
+      this.divertAttention(villain.id);
+      return null;
+    }
+
+    this.raiseInfluence(villain, knockback(villain.backedBy) * (isHunt ? HUNT_MULTIPLIER : 1));
+    this.divertAttention(villain.id);
+    if (villain.influence <= 0) {
+      villain.status = usedLethal ? 'dead' : 'imprisoned';
+      this.clearVillainWork(villain.id);
+      return {
+        alias: villain.alias,
+        killed: usedLethal,
+        pushedBack: false,
+        influence: villain.influence,
+      };
+    }
+    // Still out there, and thinner than an hour ago. The report has to be able
+    // to say so, or a pushback reads like a win.
+    return { alias: villain.alias, killed: false, pushedBack: true, influence: villain.influence };
   }
 
   // ---------- metapolitics and identity (player actions) ----------
@@ -295,6 +490,7 @@ export class GameSession {
     incident: IncidentData,
     hero: HeroData,
     approaches: readonly Approach[],
+    isHunt = false,
   ): ResolutionReport {
     const target = difficultyRoll(incident.difficulty);
     const known = this.findManifestation(hero, incident, approaches);
@@ -335,15 +531,18 @@ export class GameSession {
     let identityEvent: IdentityEvent | null = null;
 
     if (resolved) {
-      const defeated = this.surfaceVillain();
-      const killed = usedLethal;
-      defeated.status = killed ? 'dead' : 'imprisoned';
-      villain = { alias: defeated.alias, killed };
+      const result = this.applyVillainPressure(incident, true, usedLethal, isHunt);
+      villain = result;
+      const behind = this.villainBehind(incident);
       this.note(
-        `${hero.alias} ${killed ? 'put down' : 'stopped'} ${defeated.alias} during the ` +
-          `${INCIDENT_TYPE_DEFS[incident.type].label.toLowerCase()} in ${DISTRICT_LABELS[incident.district]}.`,
+        villain?.killed
+          ? `${hero.alias} put ${villain.alias} down for good.`
+          : behind
+            ? `${hero.alias} pushed ${behind.alias} back during the ${INCIDENT_TYPE_DEFS[incident.type].label.toLowerCase()} in ${DISTRICT_LABELS[incident.district]}.`
+            : `${hero.alias} stopped the ${INCIDENT_TYPE_DEFS[incident.type].label.toLowerCase()} in ${DISTRICT_LABELS[incident.district]}.`,
       );
     } else {
+      this.applyVillainPressure(incident, false, usedLethal, isHunt);
       const result = this.applySevereConsequence(hero);
       consequence = result.message;
       died = result.died;
@@ -507,14 +706,6 @@ export class GameSession {
 
   // ---------- roster ----------
 
-  private surfaceVillain(): VillainData {
-    const active = this.state.villains.find((v) => v.status === 'active');
-    if (active) return active;
-    const villain = this.characters.createVillain();
-    this.state.villains.push(villain);
-    return villain;
-  }
-
   private topUpRoster(): void {
     while (this.state.heroRoster.length < 3) {
       this.state.heroRoster.push(this.characters.createGeneratedHero());
@@ -532,10 +723,22 @@ export class GameSession {
     this.note(`The city has nobody else. You are now ${heir.alias}.`);
   }
 
+  /**
+   * The city only generates work it has a culprit for, so a villain is created
+   * when there is nobody left to blame. Backed villains appear from the start,
+   * which is what gives organisations a presence on the board.
+   */
   private spawnIncidents(min: number, max: number): void {
     const count = this.rng.int(min, max);
     for (let i = 0; i < count; i += 1) {
-      this.state.incidents.push(this.incidentFactory.createIncident());
+      const active = this.state.villains.filter((v) => v.status === 'active');
+      let villain = active.length > 0 ? this.rng.pick(active) : undefined;
+      if (!villain) {
+        const org = this.state.organizations.length > 0 ? this.rng.pick(this.state.organizations) : null;
+        villain = this.characters.createVillain(this.rng, org?.ideology ?? null);
+        this.state.villains.push(villain);
+      }
+      this.state.incidents.push(this.incidentFactory.createIncident(villain.id));
     }
   }
 

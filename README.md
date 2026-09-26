@@ -8,9 +8,9 @@ Built on the same stack as [Realms](../realms): Electron 33 + Vite 6 + React 18 
 
 ## Status
 
-Playable. Core loop, metapolitics and secret identity are built and covered by the headless
-playtest. See [DESIGN.md](./DESIGN.md) for the full spec — and §10, which records the one known
-balance problem (the city gets *quieter* over time rather than worse).
+Playable. Core loop, the villain focus economy, metapolitics and secret identity are built and covered
+by the headless playtest. See [DESIGN.md](./DESIGN.md) for the full spec; §10 has the villain economy and
+the balance data behind it.
 
 ## Run it
 
@@ -34,6 +34,26 @@ by whoever is left standing, without you.
 So every personal action is also a step of the clock for everything you did not choose. The question
 is never "what is the optimal action" but "what am I willing to let rot."
 
+## The other rule: attention is the only resource
+
+The city is not decaying and there is no rising tide. Every incident has a **culprit**, and each villain
+carries **influence** from 0 to 100. Every turn your attention lands on exactly one of them:
+
+- The villain you attend loses **35** influence.
+- **Every other active villain gains 6.** Failure gains them 10 instead.
+
+That arithmetic sets the board's equilibrium at about six simultaneous villains; seven is the cliff. New
+ones keep arriving, so holding the line means periodically deciding who to finish off — which is itself
+an act of neglect. **At 100 influence a villain has won and the run ends.**
+
+You can also **hunt** someone directly, any time, even when they are not committing a crime. It costs a
+full turn and knocks back 1.4× — it took the whole night. Without it, a villain closest to winning would
+be completely unreachable.
+
+The playtest measures three strategies over 200 seeds: never intervening averages 104 turns, attending
+random incidents averages 84, and **focusing on whoever is closest to winning averages 225 with 16
+survivors**. Aimless heroics is measurably worse than doing nothing.
+
 ## Systems
 
 | System | What it does |
@@ -42,6 +62,7 @@ is never "what is the optimal action" but "what am I willing to let rot."
 | **Manifestations** | Capabilities are *earned*. Roll well and a capability becomes permanent. |
 | **Cascading failure** | A failing hero sheds a manifestation, then a power, then dies. Failure costs capability, not health. |
 | **Approaches** | Diplomatic / Lethal / Stealthy / Swift / Tactical. Pick exactly two. Lethal kills; everything else imprisons. |
+| **Villains** | The second board. Influence, external backers, and a hunt action. |
 | **Inheritance** | When your hero dies, you become another. The city still needs a guardian. |
 | **Secret identity** | A job and specific people are at stake. Exposure is rolled, not narrated. Disclosure is a real counter-strategy. |
 | **Metapolitics** | Origin decides a hero's politics. Cells recruit by conduct; external organisations warp incident modifiers. |

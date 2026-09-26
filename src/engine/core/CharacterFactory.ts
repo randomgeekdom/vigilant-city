@@ -7,7 +7,7 @@ import { DIFFICULTY_LEVELS, DIFFICULTY_DEFS, type DifficultyLevel } from '../dat
 import { DISTRICT_LABELS, DISTRICTS } from '../data/districts';
 import { INCIDENT_TYPE_DEFS, INCIDENT_TYPES } from '../data/incidentTypes';
 import { rollAnyCivilianName, rollVillainName } from '../data/rollbard';
-import { cellForOrigin } from '../data/cells';
+import { cellForOrigin, type CellId } from '../data/cells';
 import type {
   HeroData,
   IncidentData,
@@ -88,7 +88,7 @@ export class CharacterFactory {
     return this.createHero(realName, makeAlias(powerSet, realName, (a) => rng.pick(a)), powerSet, origin);
   }
 
-  createVillain(rng: Random = this.rng): VillainData {
+  createVillain(rng: Random = this.rng, backedBy: CellId | null = null): VillainData {
     const realName = safeName(rng, () => rollVillainName(rng));
     const powerSet = rng.pick(POWER_SETS);
     const origin = rng.pick(POWER_ORIGINS);
@@ -100,6 +100,8 @@ export class CharacterFactory {
       powers: [{ powerSet, origin }],
       manifestations: [],
       status: 'active',
+      influence: rng.int(5, 20),
+      backedBy,
     };
   }
 
@@ -131,7 +133,7 @@ export class IncidentFactory {
     private readonly allocateId: IdAllocator,
   ) {}
 
-  createIncident(rng: Random = this.rng): IncidentData {
+  createIncident(villainId: string, rng: Random = this.rng): IncidentData {
     const type = rng.pick(INCIDENT_TYPES);
     const def = INCIDENT_TYPE_DEFS[type];
     const approachModifiers = {} as Record<Approach, number>;
@@ -148,6 +150,7 @@ export class IncidentFactory {
       timeToResolve: rng.int(dMin, dMax),
       difficulty: rng.pick(DIFFICULTY_LEVELS),
       approachModifiers,
+      villainId,
     };
   }
 

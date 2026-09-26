@@ -603,6 +603,118 @@ input:focus {
   background: var(--good);
 }
 
+.incident-behind {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.incident-behind.t3 {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.incident-behind.t4 {
+  border-color: var(--bad);
+  color: var(--bad);
+  font-weight: 700;
+}
+.infl {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.infl em {
+  font-style: normal;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.8;
+}
+
+.hunt-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.hunt-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.hunt-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.hunt-chip.selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #0b0d12;
+  font-weight: 700;
+}
+.hunt-chip.t3 {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.hunt-chip.t4 {
+  border-color: var(--bad);
+  color: var(--bad);
+  font-weight: 700;
+}
+.hunt-chip.selected.t3,
+.hunt-chip.selected.t4 {
+  color: #0b0d12;
+}
+.hunt-chip em {
+  font-style: normal;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.85;
+}
+
+.influence {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.influence .bar {
+  flex: 1;
+}
+.villain.active.t3 .fill {
+  background: var(--warn);
+}
+.villain.active.t4 .fill {
+  background: var(--bad);
+}
+.villain p {
+  margin: 0;
+  grid-column: 1 / -1;
+}
+
 /* ---------- politics ---------- */
 
 .cell-grid {

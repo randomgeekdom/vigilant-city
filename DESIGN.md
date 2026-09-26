@@ -49,8 +49,11 @@ This is not a monthly management sim. It is a **pacing puzzle**.
 
 **Why this is good:** you never get to "do everything." Every incident you personally attend is a month
 you spend not attending something else. The question is never "what is the optimal action" but "what am
-I willing to let rot." And the clock moves *only when you act*, so tension scales with engagement —
-a player who stops resolving things doesn't get a free month, they get a collapse.
+I willing to let rot." The clock moves *only when you act*, so tension scales with engagement.
+
+**Patrol** is a legal turn that does not attend anything: it ages every open incident, grows every
+villain, and brings in fresh work. It is not a safe default and it is not gated to an empty board — it is
+what you do when you have decided that nothing currently on the board is worth your night.
 
 ## 3. You are a hero (and so is everyone else)
 
@@ -221,20 +224,89 @@ roster loses them. That is a real cost the player weighs when choosing how much 
 reputation hit and a civilian reset, then **permanent legitimacy**. A disclosed hero can never be
 blown. Take the mask off on purpose and you are safe, and somewhat distrusted, forever.
 
-## 10. Win / loss — **partially unmodelled**
+## 10. Villains and the focus economy **[implemented]**
 
-Implemented: the run ends when no hero remains at all (your hero died with no one left to inherit).
+Every incident has a **culprit**. Villains are not flavour attached to a district; they are the reason
+the city is losing, and they are the second board.
 
-Still unmodelled and worth a decision:
-- Reputation floor across the roster — the city stops fielding you.
-- A pressure clock. **The playtest found a real problem:** across 200 seeds, 0 runs ever ended, and
-  the board drained to empty (mean open incidents at the turn cap: 0.00). Incidents expire faster
-  than the city produces them, so there is no escalating difficulty and no reason to feel behind.
-  Right now "Patrol" is a manual button, which makes the game a placid sequence of clean-ups.
-  Something needs to make the city worse over time. Not designed yet.
-- A specific villain to a specific end.
+Each villain carries **influence** (0–100) and, sometimes, an external **backer**. Influence is tiered:
 
-## 11. Tech
+| Tier | Influence | Meaning |
+| --- | --- | --- |
+| Nuisance | 0 | Street-level, not yet worth a name |
+| Notable | 40 | They have a reputation and a plan |
+| Severe | 70 | They are running something large |
+| Imminent | 100 | **They have won. The run ends.** |
+
+### 10.1 Attention is the only resource
+
+There is no passive growth and no rising tide. The city is not decaying. The pressure is purely that
+**your attention is finite and every act spends it on exactly one person:**
+
+- Attend a villain → they lose **35** influence (25 if backed).
+- Fail against them → they gain **10**. Failure is publicity.
+- **Every *other* active villain gains 6.** This is not a difficulty slider; it is the whole game.
+
+So the board's equilibrium is arithmetic, not authored:
+
+```
+net per turn = -35 + 6 x (N - 1)
+N = 3  ->  -23     comfortable
+N = 5  ->  -11
+N = 6  ->   -5     still holding
+N = 7  ->   +1     the cliff
+```
+
+New villains arrive on 18% of turns, so the board grows on its own. **Holding the line means
+periodically choosing somebody to finish off** — and that is itself an act of neglect, because everyone
+you are not attacking grows while you do it. The interesting decision is never "which incident is worth
+more" but "who am I willing to let walk, and for how long."
+
+### 10.2 Hunting
+
+A villain with no open incident would otherwise be **completely unreachable** — you would watch their
+influence climb with no legal response, which is both bad design and, in the playtest, the single thing
+that made focused play indistinguishable from aimless play. So the player can **hunt**: go after a
+named villain directly, any time, regardless of whether they are currently committing a crime.
+
+A hunt costs a full turn like anything else (so every other incident still ages), rolls against a
+difficulty that scales with the target's tier, and applies a **1.4× knockback** — it took the whole
+night, not one incident. It is emphatically not a free action; it is a bet that finishing someone off is
+worth what it costs you elsewhere.
+
+**Stopping someone takes their outstanding work with them.** When a villain is killed or imprisoned their
+open incidents come off the board. Otherwise the roster burns turns on crimes whose culprit no longer
+exists, and resolving one applies pressure to nobody. This was a real bug found by the playtest.
+
+### 10.3 What the playtest actually says
+
+Three strategies, 200 seeds each, 600-turn cap:
+
+| Strategy | Mean run | Survived |
+| --- | --- | --- |
+| Never intervene, just patrol | 104 turns | 0/200 |
+| Attend a random incident | 84 turns | 0/200 |
+| **Focus on whoever is closest to winning** | **225 turns** | **16/200** |
+
+Two results worth keeping:
+
+1. **Focusing is the only route to survival, and it is not close.** 225 vs 84 is the whole design
+   functioning as intended.
+2. **Aimless intervention is clearly worse than doing nothing** (84 vs 104). Turning up and reacting is
+   not a strategy here: you feed every villain you were not aiming at and you take the cascading
+   damage on your own hero. The game punishes heroics that are not directed.
+
+Focused play still loses 184/200, so the run is not a formality — but it is winnable by playing well,
+which is the correct shape.
+
+## 11. Win / loss
+
+- A villain reaching Imminent ends the run: the city answers to them.
+- Your hero dying hands the city to whoever is left; dying with nobody left ends it too.
+- Not yet modelled: a reputation floor across the roster, and specific villains with named ends.
+
+
+## 12. Tech
 
 Electron 33 + Vite 6 + React 18 + TypeScript 5.7 (`strict`, `noUncheckedIndexedAccess`,
 `noImplicitReturns`), `@randomgeekdom/rollbard` for name generation, `tsx` headless harness.
