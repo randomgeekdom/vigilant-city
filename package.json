@@ -1,0 +1,31 @@
+{
+  "name": "vigilant-city",
+  "version": "0.1.0",
+  "description": "Vigilant City - a superhero management game. Build a roster, keep them in the field, and hold the city together.",
+  "main": "electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "build": "tsc --noEmit && vite build",
+    "start": "electron .",
+    "playtest": "tsx src/engine/playtest.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@randomgeekdom/rollbard": "^1.2.24",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.1",
+    "wait-on": "^8.0.1"
+  }
+}
