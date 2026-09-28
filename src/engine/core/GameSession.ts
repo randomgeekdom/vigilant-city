@@ -1,6 +1,17 @@
 import { Random } from './Random';
 import { CharacterFactory, IncidentFactory } from './CharacterFactory';
 import { APPROACHES, type Approach } from '../data/approaches';
+import {
+  activeBosses,
+  BOSS_DEATH_TRUST_COST,
+  BOSS_POWER_DEFS,
+  BOSS_RETURN_INFLUENCE,
+  BOSS_THRESHOLD,
+  bossGrowth,
+  bossResistance,
+  bossSeedChance,
+  MAX_ACTIVE_BOSSES,
+} from '../data/bosses';
 import { difficultyModifier, difficultyRoll, type DifficultyLevel } from '../data/difficulty';
 import { DISTRICT_LABELS, DISTRICTS } from '../data/districts';
 import { INCIDENT_TYPE_DEFS } from '../data/incidentTypes';
@@ -287,23 +298,46 @@ export class GameSession {
   }
 
   /**
-   * Nothing in the background gets worse. A villain only grows because the
-   * player spent this turn somewhere else, so escalation and new arrivals are
-   * all that happens on a turn where nobody's work was attended.
+   * Nobody in the background makes anyone worse off. A notable villain stops
+   * waiting for the city to make work for them; a boss does not wait at all, and
+   * anyone who got away from the last containment comes back before you have
+   * finished the night.
    */
   private tickBoard(): void {
+    this.returnContainedBosses();
     for (const villain of this.state.villains) {
       if (villain.status !== 'active') continue;
       const tier = tierForInfluence(villain.influence);
       if (tier.tier === 1) continue;
-      // A notable villain stops waiting for the city to make work for them.
-      if (this.rng.chance(0.3)) {
+      if (this.rng.chance(bossSeedChance(villain))) {
         this.state.incidents.push(this.incidentFactory.createIncident(villain.id));
-        this.note(`${villain.alias} is seeding trouble in ${DISTRICT_LABELS[this.rng.pick(DISTRICTS)]}.`);      }
+        this.note(`${villain.alias} is seeding trouble in ${DISTRICT_LABELS[this.rng.pick(DISTRICTS)]}.`);
+      }
     }
 
     if (this.rng.chance(NEW_VILLAIN_CHANCE)) {
       this.introduceVillain();
+    }
+  }
+
+  /**
+   * A boss is not something you contain. They are back at the threshold with
+   * another power on them, and every time it costs more to leave them there
+   * than the last. This is why the non-lethal branch is a stall and not a
+   * strategy: the turn you spent on it bought the roster nothing.
+   */
+  private returnContainedBosses(): void {
+    for (const villain of this.state.villains) {
+      if (villain.status !== 'escaped') continue;
+      const power = this.characters.addPower(villain);
+      villain.influence = BOSS_RETURN_INFLUENCE;
+      villain.status = 'active';
+      this.note(
+        power === null
+          ? `${villain.alias} was never holding, and there is nothing left to teach them.`
+          : `${villain.alias} was never holding. They are back at ${BOSS_RETURN_INFLUENCE} and ` +
+            `they have added ${POWER_SET_DEFS[power].displayName.toLowerCase()} to it.`,
+      );
     }
   }
 
@@ -326,7 +360,7 @@ export class GameSession {
   private divertAttention(fromVillainId: string): void {
     for (const villain of this.state.villains) {
       if (villain.status !== 'active' || villain.id === fromVillainId) continue;
-      this.raiseInfluence(villain, DIVERTED_GROWTH);
+      this.raiseInfluence(villain, DIVERTED_GROWTH + bossGrowth(villain));
     }
   }
 
@@ -334,14 +368,34 @@ export class GameSession {
     const before = tierForInfluence(villain.influence);
     villain.influence = Math.max(0, Math.min(MAX_INFLUENCE, villain.influence + delta));
     const after = tierForInfluence(villain.influence);
-    if (after.tier === before.tier) return;
-    if (after.tier > before.tier) {
-      this.note(`${villain.alias} is now ${after.label}. ${after.effect}`);
+    if (after.tier !== before.tier) {
+      if (after.tier > before.tier) {
+        this.note(`${villain.alias} is now ${after.label}. ${after.effect}`);
+      }
+      if (after.tier >= 4) {
+        this.state.over = true;
+        this.state.overReason = `${villain.alias} is beyond stopping. Vigilant answers to them now.`;
+        return;
+      }
     }
-    if (after.tier >= 4) {
-      this.state.over = true;
-      this.state.overReason = `${villain.alias} is beyond stopping. Vigilant answers to them now.`;
-    }
+    // Checked outside the tier change because a boss crosses 55 mid-band: one
+    // diverted turn is enough and the tier never moves.
+    this.growIntoBoss(villain);
+  }
+
+  /**
+   * The only way a boss comes into existence. Gated on influence, and influence
+   * only rises through diversion, so this is always the player's own unattended
+   * work coming back — never a background tide.
+   */
+  private growIntoBoss(villain: VillainData): void {
+    if (villain.status !== 'active' || villain.boss !== null) return;
+    if (villain.influence < BOSS_THRESHOLD) return;
+    if (activeBosses(this.state.villains).length >= MAX_ACTIVE_BOSSES) return;
+    const power = this.characters.promoteToBoss(villain);
+    this.note(
+      `${villain.alias} is not a problem any more. ${BOSS_POWER_DEFS[power].tell}`,
+    );
   }
 
   /**
@@ -434,21 +488,46 @@ export class GameSession {
       return null;
     }
 
-    this.raiseInfluence(villain, knockback(villain.backedBy) * (isHunt ? HUNT_MULTIPLIER : 1));
+    const knock = knockback(villain.backedBy) * (isHunt ? HUNT_MULTIPLIER : 1) * bossResistance(villain, isHunt);
+    this.raiseInfluence(villain, knock);
     this.divertAttention(villain.id);
-    if (villain.influence <= 0) {
-      villain.status = usedLethal ? 'dead' : 'imprisoned';
-      this.clearVillainWork(villain.id);
-      return {
-        alias: villain.alias,
-        killed: usedLethal,
-        pushedBack: false,
-        influence: villain.influence,
-      };
-    }
+    if (villain.influence <= 0) return this.settleVillain(villain, usedLethal);
     // Still out there, and thinner than an hour ago. The report has to be able
     // to say so, or a pushback reads like a win.
-    return { alias: villain.alias, killed: false, pushedBack: true, influence: villain.influence };
+    return { alias: villain.alias, outcome: 'pushed-back', boss: villain.boss !== null, influence: villain.influence };
+  }
+
+  /**
+   * A villain at zero has an end, and for a boss it is a fork. Nobody with this
+   * much influence is stopped by doing the job properly, so the player chooses
+   * between the two available answers and both of them cost something.
+   */
+  private settleVillain(villain: VillainData, usedLethal: boolean): ResolutionReport['villain'] {
+    const result = { alias: villain.alias, boss: villain.boss !== null, influence: villain.influence };
+
+    if (villain.boss === null) {
+      villain.status = usedLethal ? 'dead' : 'imprisoned';
+      this.clearVillainWork(villain.id);
+      return { ...result, outcome: usedLethal ? 'killed' : 'imprisoned' };
+    }
+
+    if (usedLethal) {
+      villain.status = 'dead';
+      this.clearVillainWork(villain.id);
+      // The city knew that name. Executing somebody it knew is not a clean
+      // night's work, and every guardian on the roster carries a piece of it.
+      for (const hero of this.state.heroRoster) hero.reputation -= BOSS_DEATH_TRUST_COST;
+      this.note(`${villain.alias} is dead, and the city watched us do it. The whole roster carries that.`);
+      return { ...result, outcome: 'killed' };
+    }
+
+    // Their work deliberately stays on the board. They are back within the hour,
+    // so the city is still dealing with what they did, and taking them off their
+    // own incidents would make containment a reward: you would clear the board
+    // and get the same villain back. This is what makes the fork a fork.
+    villain.status = 'escaped';
+    this.note(`${villain.alias} is contained for the night. That is not the same as being stopped.`);
+    return { ...result, outcome: 'escaped' };
   }
 
   // ---------- metapolitics and identity (player actions) ----------
@@ -550,11 +629,15 @@ export class GameSession {
       villain = result;
       const behind = this.villainBehind(incident);
       this.note(
-        villain?.killed
-          ? `${hero.alias} put ${villain.alias} down for good.`
-          : behind
-            ? `${hero.alias} pushed ${behind.alias} back during the ${INCIDENT_TYPE_DEFS[incident.type].label.toLowerCase()} in ${DISTRICT_LABELS[incident.district]}.`
-            : `${hero.alias} stopped the ${INCIDENT_TYPE_DEFS[incident.type].label.toLowerCase()} in ${DISTRICT_LABELS[incident.district]}.`,
+        result === null
+          ? `${hero.alias} stopped the ${INCIDENT_TYPE_DEFS[incident.type].label.toLowerCase()} in ${DISTRICT_LABELS[incident.district]}.`
+          : result.outcome === 'killed'
+            ? `${hero.alias} put ${result.alias} down for good.`
+            : result.outcome === 'escaped'
+              ? `${hero.alias} took ${result.alias} off the board. For tonight.`
+              : behind
+                ? `${hero.alias} pushed ${behind.alias} back during the ${INCIDENT_TYPE_DEFS[incident.type].label.toLowerCase()} in ${DISTRICT_LABELS[incident.district]}.`
+                : `${hero.alias} stopped the ${INCIDENT_TYPE_DEFS[incident.type].label.toLowerCase()} in ${DISTRICT_LABELS[incident.district]}.`,
       );
     } else {
       this.applyVillainPressure(incident, false, usedLethal, isHunt);
@@ -758,6 +841,11 @@ export class GameSession {
   }
 
   private checkTerminalState(): void {
+    // First cause wins. A villain can reach Imminent part-way through a
+    // resolution that also finished the roster's trust, and the run has to be
+    // reported as the loss it actually was rather than having its ending
+    // overwritten by whichever check happens to run last.
+    if (this.state.over) return;
     if (this.state.heroRoster.length === 0) {
       this.state.over = true;
       this.state.overReason = 'No hero remains. Vigilant falls.';

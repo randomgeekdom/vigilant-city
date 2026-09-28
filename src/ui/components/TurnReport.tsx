@@ -2,12 +2,23 @@ import { APPROACH_DEFS } from '../../engine/data/approaches';
 import { DIFFICULTY_DEFS } from '../../engine/data/difficulty';
 import { DISTRICT_LABELS } from '../../engine/data/districts';
 import { INCIDENT_TYPE_DEFS } from '../../engine/data/incidentTypes';
-import type { ResolutionReport } from '../../engine/core/types';
+import type { ResolutionReport, VillainOutcome } from '../../engine/core/types';
 
 interface Props {
   report: ResolutionReport;
   onDismiss: () => void;
 }
+
+const VILLAIN_OUTCOMES: Record<VillainOutcome, { label: string; tone: string; detail: string }> = {
+  killed: { label: 'Killed', tone: 'gain', detail: '' },
+  imprisoned: { label: 'Imprisoned', tone: 'gain', detail: '' },
+  escaped: {
+    label: 'Contained',
+    tone: 'loss-note',
+    detail: ' &mdash; not the same as being stopped. They will be back before the night is out.',
+  },
+  'pushed-back': { label: 'Pushed back', tone: 'muted', detail: '' },
+};
 
 /**
  * The report deliberately leads with what you missed. Attending one incident
@@ -48,18 +59,14 @@ export function TurnReport({ report, onDismiss }: Props) {
           </p>
         )}
         {report.villain && (
-          <p className={report.villain.pushedBack ? 'muted' : 'gain'}>
-            {report.villain.killed
-              ? 'Killed'
-              : report.villain.pushedBack
-                ? `Pushed back`
-                : 'Imprisoned'}
-            : <strong>{report.villain.alias}</strong>
-            {report.villain.pushedBack && (
-              <>
-                {' '}
-                — still working, down to {Math.max(0, report.villain.influence)} influence
-              </>
+          <p className={VILLAIN_OUTCOMES[report.villain.outcome].tone}>
+            {VILLAIN_OUTCOMES[report.villain.outcome].label}: <strong>{report.villain.alias}</strong>
+            {VILLAIN_OUTCOMES[report.villain.outcome].detail}
+            {report.villain.outcome === 'killed' && report.villain.boss && (
+              <> &mdash; and the whole roster paid for it</>
+            )}
+            {report.villain.outcome === 'pushed-back' && (
+              <> &mdash; still working, down to {Math.max(0, report.villain.influence)} influence</>
             )}
           </p>
         )}

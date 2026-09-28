@@ -721,8 +721,14 @@ input:focus {
   color: var(--bad);
   font-weight: 700;
 }
+.hunt-chip.boss {
+  border-color: var(--warn);
+  color: var(--warn);
+  font-weight: 700;
+}
 .hunt-chip.selected.t3,
-.hunt-chip.selected.t4 {
+.hunt-chip.selected.t4,
+.hunt-chip.selected.boss {
   color: #0b0d12;
 }
 .hunt-chip em {
@@ -753,6 +759,25 @@ input:focus {
 .villain p {
   margin: 0;
   grid-column: 1 / -1;
+}
+.villain.boss {
+  border-color: var(--warn);
+}
+.villain.boss .boss-mark {
+  margin-left: 6px;
+  padding: 1px 6px;
+  background: var(--warn);
+  color: #0b0d12;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  vertical-align: middle;
+}
+.villain .boss-tell {
+  color: var(--warn);
+  font-style: italic;
 }
 
 /* ---------- politics ---------- */
@@ -911,6 +936,9 @@ input:focus {
 }
 .villain.imprisoned .status {
   color: var(--accent);
+}
+.villain.escaped .status {
+  color: var(--warn);
 }
 .villain.active .status {
   color: var(--bad);

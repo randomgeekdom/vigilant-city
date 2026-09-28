@@ -278,36 +278,117 @@ worth what it costs you elsewhere.
 open incidents come off the board. Otherwise the roster burns turns on crimes whose culprit no longer
 exists, and resolving one applies pressure to nobody. This was a real bug found by the playtest.
 
-### 10.3 What the playtest actually says
+### 10.3 Bosses - the ones you let go
+
+Villains are procedurally named and procedurally weak, and a name becomes worth remembering the only way
+anything in this game does: **by being left alone.** Nobody spawns as a boss and no boss is authored. At
+**55 influence** — between Notable and Severe, so it is always a tier you can see coming — a villain
+grows into one. The name is the one the name generator gave them on their first night, and the player
+remembers it because they watched that number climb for forty turns while they were busy elsewhere.
+
+This is the point of putting the gate on influence and nowhere else. Influence only ever rises through
+diverted attention, so **a boss is a bill for attention you did not spend.** There is still no tide and
+nothing in the background gets worse on its own. If you never let anybody slide, you will never meet one.
+
+A boss takes on a second power from a curated set, and that power is not flavour — it is the *reason*
+for their two numbers, and it is what the player is reading when they work out who to leave alone:
+
+| | Ordinary villain | Boss |
+| --- | --- | --- |
+| Second power | none | one, which sets both numbers below |
+| Unattended growth | +6 | +7, and +1 more for every failed containment |
+| Knockback, work mopped up at the scene | −35 (−40 backed) | **×0.5 to ×0.65** |
+| Knockback, hunted directly | −35 × 1.4 | **×0.8 to ×0.95 of that** |
+| Seeds their own work | 30%/turn | 40%/turn |
+
+The split in that table is the whole mechanic. Cleaning up after a boss barely touches them, so **going
+and getting them is the only answer** rather than an optional extra — and the playtest asserts exactly
+that, as expected progress per attempt, because a miss hands influence straight back:
+
+```
+mopping up:   0.5 x -17.5  + 0.5 x +10   =  -3.8 per night
+hunting:      0.5 x -32.6  + 0.5 x +10   = -11.3 per night
+```
+
+Hunting still lands hard on a boss, because it has to. A resistance that applied at full strength to
+hunts as well would make a boss a wall rather than a threat, and the sweep showed exactly that: focused
+play collapsed from 142 turns to 76 and stopped being survivable at all.
+
+**At most two at once.** A run should have faces in it, not a bestiary.
+
+#### The end is a fork
+
+Nobody with this much influence is stopped by doing the job properly, so when a boss's influence reaches
+zero the player is choosing between the two available answers, and both of them cost something.
+
+**Kill them.** Permanent. The city knew that name, and it watched the roster execute somebody it
+recognised, so **every hero on the roster takes one point of standing.** It is the same weight as one
+night of crime nobody showed up for, and it is deliberately nothing like a second floor — three points of
+debt per hero is the entire budget a run has, and pricing lethal force at two of them made the fork a lie,
+because the playtest then took the cheap branch 183 times to 140 and the kills were what ended runs.
+
+**Contain them.** Free, and it buys nothing. They are back before the night is out at **40** — below the
+threshold, so the promotion does not re-trigger — with another power on them and one more point of
+unattended growth for every time you do it, bounded at two so the escalation cannot run away. **Their
+open incidents stay on the board**, which is what stops the non-lethal branch being a reward: a boss who
+is back within the hour has not had their crimes dealt with, and clearing them would hand the player both
+a tidy board and the same villain.
+
+The honest summary of the fork: **permanent and expensive, or free and repeating.** Its one real worth is
+that it is the branch which does not cost the city's standing, which is a genuine reason to take it when
+the roster cannot afford the other one. It is not a way to win the same fight twice.
+
+**This branch is weaker than it looks, and the playtest says so.** The harness can contain the same boss
+six times in thirty-five turns, and every time they come back heavier. The reason is arithmetic:
+`BOSS_RETURN_INFLUENCE` is 40 and a hunt deals `1.4 × 35 × 0.8–0.95` = 39.2–46.6, so **a returned boss
+is one hunt from zero again for every power in the set.** Containment is a treadmill, not a setback. It
+also means the escalation has no teeth past its cap — powers three through eight do not change resistance
+at all, because that reads only the first power. TODO covers both.
+
+### 10.4 What the playtest actually says
 
 Three strategies, 200 seeds each, 600-turn cap. The last column is how many of those runs ended on the
 city losing faith rather than on a villain taking it (§11.1):
 
 | Strategy | Mean run | Survived | Ended on trust |
 | --- | --- | --- | --- |
-| Never intervene, just patrol | 54 turns | 0/200 | 118 |
-| Attend a random incident | 59 turns | 0/200 | 81 |
-| **Focus on whoever is closest to winning** | **142 turns** | **6/200** | 108 |
+| Never intervene, just patrol | 37 turns | 0/200 | 104 |
+| Attend a random incident | 44 turns | 0/200 | 71 |
+| **Focus on whoever is closest to winning** | **100 turns** | **2/200** | 120 |
 
 Two results worth keeping:
 
-1. **Focusing is the only route to survival, and it is not close.** 142 vs 59 is the whole design
+1. **Focusing is the only route to survival, and it is not close.** 100 vs 44 is the whole design
    functioning as intended.
-2. **Aimless intervention is barely better than doing nothing** (59 vs 54). Turning up and reacting is
+2. **Aimless intervention is barely better than doing nothing** (44 vs 37). Turning up and reacting is
    not a strategy here: you feed every villain you were not aiming at and you take the cascading
    damage on your own hero. The game punishes heroics that are not directed.
 
-Focused play still loses 194/200, so the run is not a formality — but it is winnable by playing well,
+Focused play still loses 198/200, so the run is not a formality — but it is winnable by playing well,
 which is the correct shape. Note that focusing buys *time*, not safety: it is the only strategy that
-survives long enough to run into the trust floor, and 108 of its 194 losses are there rather than in a
+survives long enough to run into the trust floor, and 120 of its 198 losses are there rather than in a
 fight with a villain.
+
+**Bosses made the whole city harder, and closed the gap between the strategies.** Before them the same
+sweep read 54 / 59 / 142 with 6 survivors; now it reads 37 / 44 / 100 with 2. Every strategy got
+shorter, which is the point — neglect produces bosses and aimless play feeds them. But the spread
+between focused and aimless play narrowed from 83 turns to 56, when the intent was for it to widen: a
+boss is supposed to punish the player who ignores people *more* than the player who goes and gets them.
+As it stands the mechanic is roughly neutral on that gap. See the TODO.
+
+The harness's focused strategy hunts a boss rather than mopping up after it, because mopping up is
+precisely what the resistance numbers make pointless. That is the script correcting itself to model a
+player who has read the tile, not a constant tuned to flatter the result — and the mechanic is separately
+asserted, so a regression in it fails the playtest rather than showing up as a nicer number.
 
 ## 11. Win / loss
 
 - A villain reaching Imminent ends the run: the city answers to them.
 - The city losing faith in the roster ends the run: nobody is left who answers.
 - Your hero dying hands the city to whoever is left; dying with nobody left ends it too.
-- Not yet modelled: specific villains with named ends.
+- Specific villains with named ends: modelled as **bosses** (§10.3) rather than as authored characters.
+  Nobody is written by hand; a villain earns a name worth remembering by being neglected into one, and
+  gets a fork for an end instead of a scripted one.
 
 ### 11.1 The reputation floor
 

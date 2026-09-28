@@ -1,4 +1,5 @@
 import type { Approach } from '../data/approaches';
+import type { BossPower } from '../data/bosses';
 import type { CellId } from '../data/cells';
 import type { DifficultyLevel } from '../data/difficulty';
 import type { District } from '../data/districts';
@@ -20,7 +21,10 @@ export interface ManifestationData {
   difficulty: DifficultyLevel;
 }
 
-export type VillainStatus = 'active' | 'imprisoned' | 'dead';
+export type VillainStatus = 'active' | 'imprisoned' | 'escaped' | 'dead';
+
+/** How a resolution left a villain. One discriminant, not three booleans that can disagree. */
+export type VillainOutcome = 'killed' | 'imprisoned' | 'escaped' | 'pushed-back';
 
 export interface VillainData extends CharacterData {
   status: VillainStatus;
@@ -28,6 +32,8 @@ export interface VillainData extends CharacterData {
   influence: number;
   /** The cell, if any, standing behind them. They consolidate faster. */
   backedBy: CellId | null;
+  /** The power that grew them into a boss, or null. Set by neglect, never at spawn. */
+  boss: BossPower | null;
 }
 
 export interface CharacterData {
@@ -111,7 +117,7 @@ export interface ResolutionReport {
   reputationDelta: number;
   consequence: string | null;
   died: boolean;
-  villain: { alias: string; killed: boolean; pushedBack: boolean; influence: number } | null;
+  villain: { alias: string; outcome: VillainOutcome; boss: boolean; influence: number } | null;
   collateral: CollateralResolution[];
   /** Set when this resolution put a civilian life at risk or destroyed it. */
   identityEvent: IdentityEvent | null;
@@ -134,5 +140,9 @@ export interface CollateralResolution {
   consequence: string | null;
 }
 
-/** v3: villains became the second board (influence, backing) and incidents name a culprit. */
-export const SNAPSHOT_VERSION = 3;
+/**
+ * v4: villains can be grown into bosses by neglect, and a boss at zero takes a
+ * fork (killed for the whole roster's standing, or contained and back before the
+ * night is out). Villains carry the power that made them a boss.
+ */
+export const SNAPSHOT_VERSION = 4;

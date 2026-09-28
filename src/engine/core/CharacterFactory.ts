@@ -3,6 +3,7 @@ import { CIVILIAN_JOBS, CIVILIAN_TIES } from '../data/civilian';
 import { POWER_ORIGINS, type PowerOrigin } from '../data/origins';
 import { POWER_SETS, makeAlias, POWER_SET_DEFS, type PowerSet } from '../data/powersets';
 import { APPROACH_DEFS, APPROACHES, type Approach } from '../data/approaches';
+import { availableBossPowers, type BossPower } from '../data/bosses';
 import { DIFFICULTY_LEVELS, DIFFICULTY_DEFS, type DifficultyLevel } from '../data/difficulty';
 import { DISTRICT_LABELS, DISTRICTS } from '../data/districts';
 import { INCIDENT_TYPE_DEFS, INCIDENT_TYPES } from '../data/incidentTypes';
@@ -102,7 +103,31 @@ export class CharacterFactory {
       status: 'active',
       influence: rng.int(5, 20),
       backedBy,
+      boss: null,
     };
+  }
+
+  /**
+   * The moment a villain stops being a problem. Nobody spawns as a boss: this
+   * only ever runs off the back of influence the player let grow by being busy
+   * elsewhere, so every boss in a run is a bill for attention that was not
+   * spent. The power goes on the end of the array rather than replacing what
+   * they had, which is what the UI already renders.
+   */
+  promoteToBoss(villain: VillainData): BossPower {
+    const power = this.rng.pick(availableBossPowers(villain));
+    villain.powers.push({ powerSet: power, origin: this.rng.pick(POWER_ORIGINS) });
+    villain.boss = power;
+    return power;
+  }
+
+  /** What a failed containment leaves them with. The reason the non-lethal branch is not free. */
+  addPower(villain: VillainData): BossPower | null {
+    const fresh = availableBossPowers(villain);
+    if (fresh.length === 0) return null;
+    const power = this.rng.pick(fresh);
+    villain.powers.push({ powerSet: power, origin: this.rng.pick(POWER_ORIGINS) });
+    return power;
   }
 
   grantManifestation(

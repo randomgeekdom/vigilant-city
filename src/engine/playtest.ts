@@ -7,14 +7,22 @@
  *  3. The pacing rule actually holds: resolving one incident ticks the others.
  */
 import { GameSession } from './core/GameSession';
-import { SNAPSHOT_VERSION, type CitySnapshot, type HeroData } from './core/types';
+import { SNAPSHOT_VERSION, type CitySnapshot, type HeroData, type VillainData } from './core/types';
 import { APPROACHES, type Approach } from './data/approaches';
+import {
+  activeBosses,
+  BOSS_DEATH_TRUST_COST,
+  BOSS_POWER_DEFS,
+  BOSS_RETURN_INFLUENCE,
+  BOSS_THRESHOLD,
+  MAX_ACTIVE_BOSSES,
+} from './data/bosses';
 import { POWER_SETS, type PowerSet } from './data/powersets';
 import { POWER_ORIGINS, type PowerOrigin } from './data/origins';
 import { Random } from './core/Random';
 import { ideologyModifier } from './core/politics';
 import { rosterTrust, TRUST_FLOOR_PER_HERO, TRUST_LOST, trustFloor } from './data/reputation';
-import { BACKED_PENALTY, HUNT_MULTIPLIER, INFLUENCE_ON_SUCCESS, MAX_INFLUENCE } from './data/villains';
+import { BACKED_PENALTY, HUNT_MULTIPLIER, INFLUENCE_ON_FAILURE, INFLUENCE_ON_SUCCESS, MAX_INFLUENCE } from './data/villains';
 
 let failures = 0;
 
@@ -57,7 +65,9 @@ function playRun(seed: number, maxTurns: number, strategy: 'neglect' | 'random' 
       continue;
     }
     // A focused player goes after whoever is closest to taking the city, and
-    // hunts them directly when there is no work of theirs on the board.
+    // hunts them directly rather than cleaning up after them. A boss is the
+    // clearest case: work you mop up at the scene barely comes off one, so a
+    // player who has read that will go at them instead of tidying up.
     if (strategy === 'focus') {
       const worst = session.villains
         .filter((v) => v.status === 'active')
@@ -65,10 +75,11 @@ function playRun(seed: number, maxTurns: number, strategy: 'neglect' | 'random' 
       if (worst) {
         const theirs = session.openIncidents.filter((i) => i.villainId === worst.id);
         const incident = theirs[0];
+        const goHunting = worst.boss !== null || !incident;
         const [a, b] = pickTwo(rng);
         try {
-          if (incident) session.resolvePlayerIncident(incident.id, a, b);
-          else session.huntVillain(worst.id, a, b);
+          if (goHunting) session.huntVillain(worst.id, a, b);
+          else session.resolvePlayerIncident(incident.id, a, b);
         } catch {
           break;
         }
@@ -259,6 +270,224 @@ console.log('hunting');
   }
 }
 
+console.log('villains grow into bosses');
+{
+  const start = GameSession.newGame({
+    realName: 'Boss Test',
+    alias: 'Boss Test',
+    powerSet: 'Telekinesis',
+    origin: 'alien',
+    seed: 8123,
+  }).session;
+  // Nobody arrives as one. They are earned by being left alone, and a new city
+  // has not left anybody alone yet.
+  check('nobody starts the run as a boss', start.villains.every((v) => v.boss === null));
+
+  // A neglected board is the only way a boss exists at all, so neglect is how the
+  // harness goes looking for one. The cap is part of the design: a run should
+  // have faces in it, not a bestiary. Swept across seeds, because a single run
+  // is not evidence that the cap is ever actually reached.
+  let peak = 0;
+  let firstBoss: VillainData | null = null;
+  for (let seed = 1; seed <= 12; seed += 1) {
+    const { session: idle } = GameSession.newGame({
+      realName: 'Neglect',
+      alias: 'Neglect',
+      powerSet: 'Telekinesis',
+      origin: 'alien',
+      seed: seed * 8123,
+    });
+    for (let turn = 0; turn < 300 && !idle.isOver; turn += 1) {
+      idle.patrol();
+      peak = Math.max(peak, activeBosses(idle.villains).length);
+      firstBoss ??= idle.villains.find((v) => v.boss !== null) ?? null;
+    }
+  }
+  check('a neglected board produces a boss', firstBoss !== null);
+  check(
+    'a boss has outgrown their one power',
+    (firstBoss?.powers.length ?? 0) >= 2,
+    `powers=${firstBoss?.powers.length ?? 0}`,
+  );
+  check('at most two bosses at once', peak <= MAX_ACTIVE_BOSSES, `peak=${peak}`);
+  check('a run really does get to two', peak >= 2, `peak=${peak} over 12 neglected seeds`);
+  console.log(`  info peak bosses on the board: ${peak}`);
+
+  // The design claim, tested rather than asserted: work you mop up at the scene
+  // barely comes off a boss, and going after them in person is the answer.
+  //
+  // Both are measured as expected progress per attempt, because a resolution
+  // that misses hands the target influence back. That is what makes mopping up
+  // a dead end rather than merely a slower route: at the hit rates the harness
+  // actually sees, a night spent cleaning up after a boss barely moves them at
+  // all, and the same night spent hunting them is several times better.
+  if (firstBoss) {
+    const boss = firstBoss;
+    const plain = Math.abs(INFLUENCE_ON_SUCCESS) - (boss.backedBy ? BACKED_PENALTY : 0);
+    const def = BOSS_POWER_DEFS[boss.boss!];
+    const mopped = plain * def.resistance;
+    const hunted = plain * HUNT_MULTIPLIER * def.huntResistance;
+    const half = 0.5;
+    const moppedExpected = half * -mopped + half * INFLUENCE_ON_FAILURE;
+    const huntedExpected = half * -hunted + half * INFLUENCE_ON_FAILURE;
+    check(
+      'mopping up after a boss barely makes progress',
+      moppedExpected > -plain / 8,
+      `expected ${moppedExpected.toFixed(1)} per attempt from ${mopped.toFixed(1)} knockback`,
+    );
+    check(
+      'hunting a boss is several times better than mopping up',
+      huntedExpected < moppedExpected / 2,
+      `${huntedExpected.toFixed(1)} vs ${moppedExpected.toFixed(1)} expected per attempt`,
+    );
+    check('a hunt still lands hard on a boss', hunted >= plain * HUNT_MULTIPLIER * 0.75, `${hunted.toFixed(1)} from ${plain}`);
+  }
+}
+
+console.log('a boss at zero is a fork');
+{
+  // Both branches have to be reachable and they have to cost different things.
+  // Non-lethal play is forced by only ever picking two non-lethal approaches, and
+  // the whole thing is swept over many seeds because a single run is not
+  // guaranteed to contain a boss with two pieces of work on the board at the
+  // moment it is taken down.
+  const nonLethal: [Approach, Approach] = ['diplomatic', 'stealthy'];
+  let containments = 0;
+  let returned = 0;
+  let workHeld = 0;
+  let workBefore = 0;
+  let workAfter = 0;
+  let duplicated = 0;
+  let trustBeforeContainment = 0;
+  let trustAfterContainment = 0;
+  let earnedAtContainment = 0;
+  let rosterAtContainment = 0;
+  for (let seed = 1; seed <= 24; seed += 1) {
+    const { session } = GameSession.newGame({
+      realName: 'Fork Test',
+      alias: 'Fork Test',
+      powerSet: 'CombatMaster',
+      origin: 'genetic',
+      seed: seed * 3301,
+    });
+    for (let turn = 0; turn < 300 && !session.isOver; turn += 1) {
+      if (activeBosses(session.villains).length === 0) {
+        session.patrol();
+        continue;
+      }
+      const boss = session.villains.find((v) => v.boss !== null && v.status === 'active')!;
+      const work = session.openIncidents.filter((i) => i.villainId === boss.id);
+      const before = work.length;
+      const powersBefore = boss.powers.length;
+      const trustBefore = session.trust;
+      const roster = session.allHeroes.length;
+      let report;
+      try {
+        report = work.length > 0
+          ? session.resolvePlayerIncident(work[0]!.id, ...nonLethal)
+          : session.huntVillain(boss.id, ...nonLethal);
+      } catch {
+        break;
+      }
+      if (report.villain?.outcome !== 'escaped') continue;
+      containments += 1;
+      if (boss.powers.length > powersBefore) returned += 1;
+      const held = new Set(boss.powers.map((p) => p.powerSet));
+      if (held.size !== boss.powers.length) duplicated += 1;
+      if (before >= 2) {
+        workHeld += 1;
+        workBefore += before;
+        workAfter += session.openIncidents.filter((i) => i.villainId === boss.id).length;
+      }
+      // The first one, so the numbers describe a single containment and not an
+      // average over a run that also lost heroes along the way.
+      if (containments === 1) {
+        trustBeforeContainment = trustBefore;
+        trustAfterContainment = session.trust;
+        earnedAtContainment = report.reputationDelta;
+        rosterAtContainment = roster;
+      }
+    }
+  }
+  console.log(`  info containments: ${containments}, of which returned with another power: ${returned}`);
+
+  check('a boss can be contained without being killed', containments > 0, `containments=${containments}`);
+  check('a contained boss comes back with another power', containments > 0 && returned > 0, `${returned}/${containments}`);
+  // The powers list is the only record of how many times a boss got away, so it
+  // has to stay a set. A repeat entry would overstate their escalation forever.
+  check('no boss ever holds the same power twice', duplicated === 0, `${duplicated} with a duplicate`);
+  // Containment is the branch that does not cost the city's standing. Measured
+  // against the price a kill would have charged, because the resolution moves
+  // trust on its own account and the fork is only a fork if the two differ.
+  check(
+    'containment does not cost the city its standing',
+    containments > 0 &&
+      trustAfterContainment >= trustBeforeContainment + earnedAtContainment - BOSS_DEATH_TRUST_COST * rosterAtContainment,
+    `trust ${trustBeforeContainment} -> ${trustAfterContainment}, earned ${earnedAtContainment}, ` +
+      `a kill would have cost ${BOSS_DEATH_TRUST_COST * rosterAtContainment}`,
+  );
+  // Stopping someone takes their work with them. Being contained is not being
+  // stopped, so their work has to stay on the board — otherwise the non-lethal
+  // branch would clear the board *and* hand the same villain back, and it would
+  // be the better answer every time.
+  check(
+    "containment leaves the boss's work on the board",
+    workHeld > 0 && workAfter >= workBefore - workHeld,
+    `${workHeld} containments with 2+ incidents: ${workBefore} before, ${workAfter} after (one resolved each)`,
+  );
+
+  // The lethal branch, and the price the user chose for it.
+  const { session: lethalRun } = GameSession.newGame({
+    realName: 'Lethal Test',
+    alias: 'Lethal Test',
+    powerSet: 'SuperStrength',
+    origin: 'genetic',
+    seed: 9001,
+  });
+  let sawKill = false;
+  let killWasFlaggedBoss = false;
+  let trustBefore = 0;
+  let trustAfter = 0;
+  let earned = 0;
+  let rosterAtKill = 0;
+  for (let turn = 0; turn < 400 && !lethalRun.isOver; turn += 1) {
+    const boss = lethalRun.villains.find((v) => v.boss !== null && v.status === 'active');
+    if (!boss) {
+      lethalRun.patrol();
+      continue;
+    }
+    const work = lethalRun.openIncidents.filter((i) => i.villainId === boss.id);
+    trustBefore = lethalRun.trust;
+    rosterAtKill = lethalRun.allHeroes.length;
+    let report;
+    try {
+      report = work.length > 0
+        ? lethalRun.resolvePlayerIncident(work[0]!.id, 'lethal', 'tactical')
+        : lethalRun.huntVillain(boss.id, 'lethal', 'tactical');
+    } catch {
+      break;
+    }
+    if (report.villain?.outcome === 'killed') {
+      killWasFlaggedBoss = report.villain.boss;
+      // The resolution itself moves trust, so the price of the execution is what
+      // is left once the night's own reputation gain is accounted for.
+      earned = report.reputationDelta;
+      trustAfter = lethalRun.trust;
+      sawKill = true;
+      break;
+    }
+  }
+  check('a boss can be killed outright', sawKill);
+  check(
+    'killing a boss costs the whole roster standing',
+    sawKill && trustAfter <= trustBefore + earned - BOSS_DEATH_TRUST_COST * rosterAtKill,
+    `trust ${trustBefore} -> ${trustAfter}, earned ${earned}, roster of ${rosterAtKill}, price ${BOSS_DEATH_TRUST_COST * rosterAtKill}`,
+  );
+  // The report has to be able to tell the player why that happened, and the turn
+  // report reads this flag to decide whether to mention the price at all.
+  check('the report says the kill was a boss kill', sawKill && killWasFlaggedBoss, `flagged=${killWasFlaggedBoss}`);
+}
+
 console.log('patrol costs a turn');
 {
   const { session } = GameSession.newGame({
@@ -341,33 +570,49 @@ console.log("the city's trust");
 
   // What actually empties the city is unattended work: the whole roster takes
   // that hit, which is why one bad night is survivable and a hundred are not.
-  const { session: idle } = GameSession.newGame({
-    realName: 'Nobody There',
-    alias: 'Nobody There',
-    powerSet: 'Flight',
-    origin: 'genetic',
-    seed: 1717,
-  });
+  //
+  // The two terminal clocks are measured across many idle runs rather than off
+  // one seed. A single seed is not a claim about the design — it is a claim
+  // about seed 1717 — and it flips the moment any balance number moves. What
+  // §11.1 actually asserts is that a run can end on either clock and that they
+  // are different failures, which is a property of the population.
   let sawBleed = false;
-  let trustEnded = false;
-  let worstVillain = 0;
-  for (let turn = 0; turn < 400 && !idle.isOver; turn += 1) {
-    const before = idle.trust;
-    idle.patrol();
-    if (idle.trust < before) sawBleed = true;
+  let onTrust = 0;
+  let onConquest = 0;
+  let worstAtTrustLoss = 0;
+  for (let seed = 1; seed <= 60; seed += 1) {
+    const { session: idle } = GameSession.newGame({
+      realName: 'Nobody There',
+      alias: 'Nobody There',
+      powerSet: 'Flight',
+      origin: 'genetic',
+      seed: seed * 2749,
+    });
+    for (let turn = 0; turn < 400 && !idle.isOver; turn += 1) {
+      const before = idle.trust;
+      idle.patrol();
+      if (idle.trust < before) sawBleed = true;
+    }
     if (idle.overReason === TRUST_LOST) {
-      trustEnded = true;
-      worstVillain = Math.max(0, ...idle.villains.filter((v) => v.status === 'active').map((v) => v.influence));
+      onTrust += 1;
+      worstAtTrustLoss = Math.max(
+        worstAtTrustLoss,
+        ...idle.villains.filter((v) => v.status === 'active').map((v) => v.influence),
+      );
+    } else if (idle.isOver) {
+      onConquest += 1;
     }
   }
+  console.log(`  info idle runs ending on trust: ${onTrust}/60, on conquest: ${onConquest}/60`);
   check('a night when nobody answers costs the city standing', sawBleed);
-  check('the city can stop believing in its guardians', trustEnded, `ended at turn ${idle.turn}: ${idle.overReason}`);
-  // The two clocks are independent. Losing the city is not the same failure as
-  // handing it to a villain, and a run has to be able to end on either.
+  check('the city can stop believing in its guardians', onTrust > 0, `${onTrust}/60 idle runs ended on trust`);
+  check('a villain can take the city instead', onConquest > 0, `${onConquest}/60 idle runs ended on conquest`);
+  // Losing the city is not the same failure as handing it to someone. Every run
+  // that ended on trust did so with somebody well short of taking it.
   check(
     'losing the city is not the same as losing it to a villain',
-    trustEnded && worstVillain < MAX_INFLUENCE,
-    `worst active villain at ${worstVillain}`,
+    onTrust > 0 && worstAtTrustLoss < MAX_INFLUENCE,
+    `worst active villain at ${worstAtTrustLoss} across ${onTrust} trust losses`,
   );
 }
 

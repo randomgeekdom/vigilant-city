@@ -6,6 +6,7 @@ import { DIFFICULTY_DEFS } from '../../engine/data/difficulty';
 import type { DifficultyLevel } from '../../engine/data/difficulty';
 import { DISTRICTS, DISTRICT_LABELS } from '../../engine/data/districts';
 import { INCIDENT_TYPE_DEFS } from '../../engine/data/incidentTypes';
+import { BOSS_POWER_DEFS } from '../../engine/data/bosses';
 import { tierForInfluence } from '../../engine/data/villains';
 import { APPROACHES } from '../../engine/data/approaches';
 import type { IncidentData, ResolutionReport } from '../../engine/core/types';
@@ -100,14 +101,18 @@ export function CityView({ session, onResolve, onHunt, onPatrol }: Props) {
             return (
               <button
                 key={v.id}
-                className={`hunt-chip t${tier.tier}${huntTarget === v.id ? ' selected' : ''}`}
+                className={`hunt-chip t${tier.tier}${v.boss ? ' boss' : ''}${huntTarget === v.id ? ' selected' : ''}`}
                 onClick={() => setHuntTarget(huntTarget === v.id ? null : v.id)}
                 type="button"
-                title={`Confront ${v.alias}. Costs a full turn and hits harder than catching them at the scene.`}
+                title={
+                  v.boss
+                    ? `${v.alias} has outgrown the job. ${BOSS_POWER_DEFS[v.boss].tell} Costs a full turn, and attention barely comes off them.`
+                    : `Confront ${v.alias}. Costs a full turn and hits harder than catching them at the scene.`
+                }
               >
                 {v.alias}
                 <em>
-                  {v.influence} {tier.label}
+                  {v.influence} {v.boss ? 'boss' : tier.label}
                 </em>
               </button>
             );

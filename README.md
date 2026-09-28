@@ -55,8 +55,28 @@ You can also **hunt** someone directly, any time, even when they are not committ
 full turn and knocks back 1.4× — it took the whole night. Without it, a villain closest to winning would
 be completely unreachable.
 
-The playtest measures three strategies over 200 seeds: never intervening averages 54 turns, attending
-random incidents averages 59, and **focusing on whoever is closest to winning averages 142 with 6
+## Bosses: the ones you let go
+
+At **55 influence** a villain stops being a problem and starts being something you have to go and get.
+Nobody is written by hand and nobody spawns as one — a villain earns a name worth remembering by being
+neglected into having one, and the name is the one the generator gave them on their first night.
+
+A boss takes a second power, and that power is the *reason* for their numbers rather than flavour. Work
+you mop up at the scene barely comes off them (×0.5–0.65); hunting them still lands hard (×0.8–0.95).
+That split is the mechanic: **cleaning up after a boss is a dead end and going and getting them is the
+answer.** They grow faster, seed more of their own work, and there are at most two at once.
+
+When one reaches zero you are choosing between the two available answers, and both cost something:
+
+- **Kill them.** Permanent, and the city knew that name — every hero on the roster takes a point of
+  standing for an execution it watched.
+- **Contain them.** Free, and it buys nothing. They are back before the night is out with another power
+  and one more point of growth, and their open incidents never left the board.
+
+Permanent and expensive, or free and repeating.
+
+The playtest measures three strategies over 200 seeds: never intervening averages 37 turns, attending
+random incidents averages 44, and **focusing on whoever is closest to winning averages 100 with 2
 survivors**. Aimless heroics is barely better than doing nothing.
 
 ## Systems
@@ -68,6 +88,7 @@ survivors**. Aimless heroics is barely better than doing nothing.
 | **Cascading failure** | A failing hero sheds a manifestation, then a power, then dies. Failure costs capability, not health. |
 | **Approaches** | Diplomatic / Lethal / Stealthy / Swift / Tactical. Pick exactly two. Lethal kills; everything else imprisons. |
 | **Villains** | The second board. Influence, external backers, and a hunt action. |
+| **Bosses** | Neglected villains earn a second power at 55 influence, resist mopping-up, and end in a fork: kill them and pay standing, or contain them and get the same fight again. |
 | **City trust** | The roster's reputations, summed, against a floor. The other way to lose: the city stops believing in its guardians. |
 | **Inheritance** | When your hero dies, you become another. The city still needs a guardian. |
 | **Secret identity** | A job and specific people are at stake. Exposure is rolled, not narrated. Disclosure is a real counter-strategy. |
@@ -94,6 +115,7 @@ src/
       districts.ts            9 fixed districts
       incidentTypes.ts        5 incident types + per-approach modifier shapes
       villains.ts             influence tiers, knockback, hunting multiplier
+      bosses.ts               boss powers, growth, and the kill/contain fork
       reputation.ts           city trust: the roster sum, its floor, its verdict
       cells.ts                4 metapolitical cells, origin -> cell
       organizations.ts        external organisation templates
