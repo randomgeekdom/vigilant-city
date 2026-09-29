@@ -9,15 +9,18 @@ import type { CellId } from './cells';
  * everywhere it is not spent.
  *
  * That is the whole design. There is no passive growth and no rising tide, so
- * the equilibrium falls out of arithmetic rather than a difficulty slider:
- * each turn the villain you attend loses 35 and every villain you did not
- * gains 6, so the city is holdable at up to six of them at once. Seven is the
- * cliff. New villains keep arriving, so holding the line means periodically
- * choosing somebody to finish off — which is itself an act of neglect.
+ * the equilibrium falls out of arithmetic: each turn the villain you attend
+ * loses 35 and every villain you did not gains 6, so the city is holdable at up
+ * to six of them at once. Seven is the cliff. New villains keep arriving, so
+ * holding the line means periodically choosing somebody to finish off — which
+ * is itself an act of neglect.
+ *
+ * That 6 is the one number in here the player gets to choose, through the run's
+ * threat level in `difficulty.ts`. What the setting moves is the *magnitude* of
+ * inattention, never its cause: a harder city is not a city that decays, it is a
+ * city where the same night of attention buys less. The claim above survives it
+ * intact, and the equilibrium cliff moves with the number rather than going away.
  */
-
-/** How much attention costs everyone you did not spend it on, per turn. */
-export const DIVERTED_GROWTH = 6;
 
 /** Chance a new villain walks into the city on a given turn. */
 export const NEW_VILLAIN_CHANCE = 0.18;

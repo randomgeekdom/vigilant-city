@@ -6,14 +6,32 @@ Remove an item when it is done. If the work uncovers something new, add it here.
 Ordered roughly by value per unit of effort. Each item says where it comes from, so nobody has to
 re-derive it.
 
-## No run-level difficulty
+## `knockback` gives a backed villain *more* pushback, not less
 
-The four tiers in `data/difficulty.ts` are per-incident rolls that `IncidentFactory` picks at random;
-nothing ever sets one for a whole run. `NewGameOptions` has no difficulty field and `NewGame.tsx` has no
-selector, so every run is the same run. Worse, the new city trust floor is a single global constant, so
-it cannot be tuned per tier either. Decide what a difficulty setting changes — the floor, the villain
-economy in `data/villains.ts`, or both — and thread it through `NewGameOptions`, the snapshot, and the
-playtest sweeps.
+Uncovered while threading difficulty through `data/villains.ts`. `knockback()` is
+`INFLUENCE_ON_SUCCESS - (backedBy ? BACKED_PENALTY : 0)` = `-35 - 5` = **-40**, so attending a backed
+villain's work drives them down 40 while an ordinary one goes down 35. The comment directly above it says
+the opposite — "A villain with backing behind them is worth more, so the same attention buys less" — and
+so does `BACKED_PENALTY`'s own name, and so does the playtest, which reads the same expression as
+`35 - 5 = 30` in two places (`plain` in the hunting and boss blocks). So the engine and the harness
+disagree about the same line, in opposite directions, and the harness has been asserting against its own
+reading of the engine. Somebody is wrong by 10 influence and it is not obvious which. Fix it, then decide
+whether the playtest's version or the engine's is the intent.
+
+## The trust floor and the difficulty ladder have never met a human
+
+Uncovered by the run-difficulty work, and the same species of problem one notch apart. The Average city's
+`THREAT_DEFS.average.trustFloorPerHero = -3` was tuned against three crude scripted strategies, and the
+harness says so (see DESIGN.md §11.1). The other three cities (5/6/8/10 growth, -6/-2/-1 floor) are newer
+and were fitted to exactly two things: a monotone ordering of run length, and the existing strategy claims
+staying true. That is not the same as being right. "Easy runs 244 turns" means "the bot survives Easy more
+often", not "Easy is fun" or "Easy lasts long enough to be a run" — and Easy is the number most likely to
+be wrong, because at growth 5 the board holds eight villains before the cliff, and the design argues
+elsewhere that a crowded board is no more readable than a board of numbers.
+
+Play an Easy and a Backbreaking run start to finish with the meter in front of them, and report where
+each one actually feels like it pulls — too early, too late, or not at all — before the next balance pass
+trusts these numbers again.
 
 ## The containment branch is a treadmill, and later powers are flavour
 
@@ -63,14 +81,9 @@ per-turn array maintained for nobody.
 ## No migration path across snapshot versions
 
 `GameSession.fromSnapshot` throws when `snap.version !== SNAPSHOT_VERSION`, and `App.tsx` swallows that
-in a bare `catch` and treats the run as "no save". `SNAPSHOT_VERSION` is 4 — it went to 4 when bosses
-added `VillainData.boss` and the `escaped` status, so every v3 save is already silently a lost run with no
-message. Bump the version whenever the shape changes and make the failure visible — distinguish "corrupt"
-from "too old" in the UI at least.
-
-## The trust floor has never met a human
-
-`TRUST_FLOOR_PER_HERO = -3` was tuned against three crude scripted strategies, and the harness says so
-(see DESIGN.md §11.1). Nobody has played a run start to finish with the meter in front of them. Play a
-few and report where it actually feels like it pulls — too early, too late, or not at all — before the
-next balance pass trusts the numbers again.
+in a bare `catch` and treats the run as "no save". `SNAPSHOT_VERSION` is 5 — it went to 4 when bosses
+added `VillainData.boss` and the `escaped` status, and to 5 when the run's threat level joined the save,
+so every v4 save is now a silently lost run with no message. Bump the version whenever the shape changes
+and make the failure visible — distinguish "corrupt" from "too old" in the UI at least. There is no
+migration to write here, only the distinction to make: a save the game cannot read is a fact the player
+is entitled to.

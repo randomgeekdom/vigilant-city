@@ -1,10 +1,17 @@
 import { useState } from 'react';
 import { makeAlias, POWER_SETS, POWER_SET_DEFS, type PowerSet } from '../../engine/data/powersets';
 import { POWER_ORIGINS, ORIGIN_DEFS, type PowerOrigin } from '../../engine/data/origins';
+import { DEFAULT_THREAT, THREAT_DEFS, THREAT_LEVELS, type ThreatLevel } from '../../engine/data/difficulty';
 import { Random } from '../../engine/core/Random';
 
 interface Props {
-  onStart: (opts: { realName: string; alias: string; powerSet: PowerSet; origin: PowerOrigin }) => void;
+  onStart: (opts: {
+    realName: string;
+    alias: string;
+    powerSet: PowerSet;
+    origin: PowerOrigin;
+    threat: ThreatLevel;
+  }) => void;
   onLoad: () => void;
   hasSave: boolean;
 }
@@ -14,6 +21,7 @@ export function NewGame({ onStart, onLoad, hasSave }: Props) {
   const [alias, setAlias] = useState('');
   const [powerSet, setPowerSet] = useState<PowerSet>('Flight');
   const [origin, setOrigin] = useState<PowerOrigin>('genetic');
+  const [threat, setThreat] = useState<ThreatLevel>(DEFAULT_THREAT);
   const [touched, setTouched] = useState(false);
 
   const suggest = () => {
@@ -24,7 +32,7 @@ export function NewGame({ onStart, onLoad, hasSave }: Props) {
   const start = () => {
     setTouched(true);
     if (!realName.trim() || !alias.trim()) return;
-    onStart({ realName: realName.trim(), alias: alias.trim(), powerSet, origin });
+    onStart({ realName: realName.trim(), alias: alias.trim(), powerSet, origin, threat });
   };
 
   return (
@@ -92,16 +100,33 @@ export function NewGame({ onStart, onLoad, hasSave }: Props) {
 
         <div className="field">
           <label>Origin</label>
-          <div className="grid-origins">
+          <div className="grid-cards">
             {POWER_ORIGINS.map((o) => (
               <button
                 key={o}
-                className={origin === o ? 'origin sel' : 'origin'}
+                className={origin === o ? 'card sel' : 'card'}
                 onClick={() => setOrigin(o)}
                 type="button"
               >
                 <strong>{ORIGIN_DEFS[o].label}</strong>
                 <span>{ORIGIN_DEFS[o].blurb}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="field">
+          <label>How hard is the city</label>
+          <div className="grid-cards">
+            {THREAT_LEVELS.map((t) => (
+              <button
+                key={t}
+                className={threat === t ? 'card sel' : 'card'}
+                onClick={() => setThreat(t)}
+                type="button"
+              >
+                <strong>{THREAT_DEFS[t].label}</strong>
+                <span>{THREAT_DEFS[t].blurb}</span>
               </button>
             ))}
           </div>

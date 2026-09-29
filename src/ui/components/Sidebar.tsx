@@ -1,4 +1,5 @@
 import type { GameSession } from '../../engine/core/GameSession';
+import { THREAT_DEFS } from '../../engine/data/difficulty';
 import { ORIGIN_DEFS } from '../../engine/data/origins';
 import { POWER_SET_DEFS } from '../../engine/data/powersets';
 
@@ -41,6 +42,10 @@ export function Sidebar({ session, onSave, onLoad, onNewGame }: Props) {
       <div className="stat-row">
         <span>Open</span>
         <strong>{session.openIncidents.length}</strong>
+      </div>
+      <div className="stat-row">
+        <span>City</span>
+        <strong title={THREAT_DEFS[session.threat].blurb}>{THREAT_DEFS[session.threat].label}</strong>
       </div>
       <div className="stat-row">
         <span>City trust</span>

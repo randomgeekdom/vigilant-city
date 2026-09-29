@@ -1,3 +1,4 @@
+import { trustFloorPerHero, type ThreatLevel } from './difficulty';
 import type { HeroData } from '../core/types';
 
 /**
@@ -18,16 +19,6 @@ import type { HeroData } from '../core/types';
  * that has stopped believing in the rest of them.
  */
 
-/**
- * How much goodwill the city expects from each guardian it is relying on.
- * Negative, because goodwill is a debt: the city starts out willing to give
- * you the benefit of the doubt and only asks for it back after you fail.
- *
- * Scales with the roster, so a bigger roster has to earn its keep rather than
- * inheriting the credit for four people.
- */
-export const TRUST_FLOOR_PER_HERO = -3;
-
 /** Above the floor by this much and the city is still with you. */
 export const TRUST_MARGIN = 6;
 
@@ -41,8 +32,20 @@ export function rosterTrust(heroes: readonly HeroData[]): number {
   return total;
 }
 
-export function trustFloor(rosterSize: number): number {
-  return TRUST_FLOOR_PER_HERO * Math.max(1, rosterSize);
+/**
+ * How much goodwill the city expects from each guardian it is relying on.
+ * Negative, because goodwill is a debt: the city starts out willing to give
+ * you the benefit of the doubt and only asks for it back after you fail.
+ *
+ * Scales with the roster, so a bigger roster has to earn its keep rather than
+ * inheriting the credit for four people, and with the run's threat, so a harder
+ * city is one that asks for it back sooner. The per-hero number lives in
+ * `difficulty.ts` with the rest of the setting; this is the rule for spending
+ * it. Note the direction: a hard city has a *shallower* allowance, so this
+ * climbs towards zero as the city gets worse.
+ */
+export function trustFloor(rosterSize: number, threat: ThreatLevel): number {
+  return trustFloorPerHero(threat) * Math.max(1, rosterSize);
 }
 
 export type TrustVerdict = 'held' | 'slipping' | 'failing';

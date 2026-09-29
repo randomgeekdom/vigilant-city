@@ -46,7 +46,7 @@ export type BossPower = (typeof BOSS_POWERS)[number];
 export interface BossPowerDef {
   /** One line. What the player reads off them when deciding who to leave alone. */
   tell: string;
-  /** Added to DIVERTED_GROWTH on every turn they are left unattended. */
+  /** Added to the run's diverted growth on every turn they are left unattended. */
   growth: number;
   /**
    * Multiplier on knockback for work you mop up at the scene. This is the number
@@ -174,7 +174,7 @@ export function activeBosses(villains: readonly VillainData[]): VillainData[] {
 }
 
 
-/** Extra influence per unattended turn. Ordinary villains consolidate at DIVERTED_GROWTH alone. */
+/** Extra influence per unattended turn. Ordinary villains consolidate at the run's diverted growth alone. */
 export function bossGrowth(villain: VillainData): number {
   if (villain.boss === null) return 0;
   const def = BOSS_POWER_DEFS[villain.boss];

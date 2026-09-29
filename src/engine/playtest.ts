@@ -19,9 +19,17 @@ import {
 } from './data/bosses';
 import { POWER_SETS, type PowerSet } from './data/powersets';
 import { POWER_ORIGINS, type PowerOrigin } from './data/origins';
+import {
+  DEFAULT_THREAT,
+  divertedGrowth,
+  THREAT_DEFS,
+  THREAT_LEVELS,
+  trustFloorPerHero,
+  type ThreatLevel,
+} from './data/difficulty';
 import { Random } from './core/Random';
 import { ideologyModifier } from './core/politics';
-import { rosterTrust, TRUST_FLOOR_PER_HERO, TRUST_LOST, trustFloor } from './data/reputation';
+import { rosterTrust, TRUST_LOST, trustFloor } from './data/reputation';
 import { BACKED_PENALTY, HUNT_MULTIPLIER, INFLUENCE_ON_FAILURE, INFLUENCE_ON_SUCCESS, MAX_INFLUENCE } from './data/villains';
 
 let failures = 0;
@@ -40,7 +48,22 @@ function pickTwo(rng: Random): [Approach, Approach] {
   return [shuffled[0]!, shuffled[1]!];
 }
 
-function playRun(seed: number, maxTurns: number, strategy: 'neglect' | 'random' | 'focus' = 'random'): GameSession {
+/**
+ * "an Easy city", "a Difficult city". The harness output is read by whoever tunes
+ * the tables next, and a wrong article in a check name is a small sign that
+ * nobody was.
+ */
+function onCity(threat: ThreatLevel): string {
+  const label = THREAT_DEFS[threat].label;
+  return `${/^[AEIOU]/.test(label) ? 'an' : 'a'} ${label.toLowerCase()} city`;
+}
+
+function playRun(
+  seed: number,
+  maxTurns: number,
+  strategy: 'neglect' | 'random' | 'focus' = 'random',
+  threat: ThreatLevel = DEFAULT_THREAT,
+): GameSession {
   const rng = new Random(seed ^ 0x5eed);
   const powerSet = rng.pick(POWER_SETS) as PowerSet;
   const origin = rng.pick(POWER_ORIGINS) as PowerOrigin;
@@ -49,6 +72,7 @@ function playRun(seed: number, maxTurns: number, strategy: 'neglect' | 'random' 
     alias: 'Test Hero',
     powerSet,
     origin,
+    threat,
     seed,
   });
 
@@ -522,13 +546,16 @@ console.log('patrol costs a turn');
 console.log('attention is the whole game');
 {
   // Neglect: never intervene, just keep patrolling.
-  const measure = (strategy: 'neglect' | 'random' | 'focus') => {
+  const measure = (
+    strategy: 'neglect' | 'random' | 'focus',
+    threat: ThreatLevel = DEFAULT_THREAT,
+  ) => {
     let total = 0;
     let survived = 0;
     let maxTurns = 0;
     let onTrust = 0;
     for (let seed = 1; seed <= 200; seed += 1) {
-      const s = playRun(seed * 7919, 600, strategy === 'neglect' ? 'neglect' : strategy);
+      const s = playRun(seed * 7919, 600, strategy, threat);
       total += s.turn;
       maxTurns = Math.max(maxTurns, s.turn);
       if (!s.isOver) survived += 1;
@@ -550,6 +577,174 @@ console.log('attention is the whole game');
   check('the game is not trivially winnable by focusing alone', focus.survived < 200, `${focus.survived}/200 survived`);
 }
 
+console.log('how hard is the city');
+{
+  // The setting is only real if it reaches both clocks. A run is won by
+  // attention and lost by running out of goodwill, so a city that changes only
+  // one of them is half a difficulty setting, and the sweep below is the only
+  // thing here that would notice.
+  const measure = (strategy: 'neglect' | 'random' | 'focus', threat: ThreatLevel) => {
+    let total = 0;
+    let survived = 0;
+    let onTrust = 0;
+    for (let seed = 1; seed <= 200; seed += 1) {
+      const s = playRun(seed * 7919, 600, strategy, threat);
+      total += s.turn;
+      if (!s.isOver) survived += 1;
+      if (s.overReason === TRUST_LOST) onTrust += 1;
+    }
+    return { avg: Math.round(total / 200), survived, onTrust };
+  };
+
+  const rows = THREAT_LEVELS.map((threat) => ({
+    threat,
+    neglect: measure('neglect', threat),
+    spread: measure('random', threat),
+    focus: measure('focus', threat),
+  }));
+
+  console.log('  info 200 seeds per cell, 600-turn cap');
+  const pad = (n: number) => String(n).padStart(3);
+  for (const row of rows) {
+    console.log(
+      `  info ${THREAT_DEFS[row.threat].label.padEnd(14)}` +
+        ` never ${pad(row.neglect.avg)}  random ${pad(row.spread.avg)}  focus ${pad(row.focus.avg)}` +
+        `  (focus ${row.focus.survived}/200 survived, ${row.focus.onTrust}/200 on trust)`,
+    );
+  }
+
+  check(
+    'the price of inattention rises with the city',
+    THREAT_LEVELS.every((t, i) => i === 0 || divertedGrowth(t) > divertedGrowth(THREAT_LEVELS[i - 1]!)),
+    THREAT_LEVELS.map((t) => divertedGrowth(t)).join(' < '),
+  );
+  check(
+    'a harder city asks for its debt back sooner',
+    THREAT_LEVELS.every((t, i) => i === 0 || trustFloor(3, t) > trustFloor(3, THREAT_LEVELS[i - 1]!)),
+    THREAT_LEVELS.map((t) => trustFloor(3, t)).join(' < '),
+  );
+
+  // The claim the whole design rests on has to survive the knob. If focusing
+  // stops beating aimless play somewhere on the ladder, the setting has broken
+  // the game rather than scaled it, and no amount of monotone run lengths makes
+  // that acceptable.
+  for (const row of rows) {
+    check(`focusing still beats spreading on ${onCity(row.threat)}`, row.focus.avg > row.spread.avg, `${row.focus.avg} vs ${row.spread.avg}`);
+    check(`focusing still beats doing nothing on ${onCity(row.threat)}`, row.focus.avg > row.neglect.avg, `${row.focus.avg} vs ${row.neglect.avg}`);
+    check(
+      `aimless intervention is still not a strategy on ${onCity(row.threat)}`,
+      row.spread.avg <= row.neglect.avg + 10,
+      `${row.spread.avg} vs ${row.neglect.avg}`,
+    );
+  }
+  for (let i = 1; i < rows.length; i += 1) {
+    const here = rows[i]!;
+    const before = rows[i - 1]!;
+    check(
+      `focused play is shorter on ${onCity(here.threat)} than on ${onCity(before.threat)}`,
+      here.focus.avg < before.focus.avg,
+      `${before.focus.avg} -> ${here.focus.avg}`,
+    );
+  }
+  // A run the player cannot finish is not a difficulty, it is a wall, and an
+  // easy city that cannot be beaten is the same bug pointing the other way.
+  const easy = rows[0]!;
+  const brutal = rows[rows.length - 1]!;
+  check('a brutal city is not more winnable than an easy one', easy.focus.survived >= brutal.focus.survived, `${easy.focus.survived} vs ${brutal.focus.survived}`);
+  check('an easy city is survivable by playing well', easy.focus.survived > 0, `${easy.focus.survived}/200 survived`);
+  check('even the easiest city is not a formality', easy.focus.survived < 200, `${easy.focus.survived}/200 survived`);
+}
+
+console.log('the city you chose is the city you play');
+{
+  // Measured off the board rather than read off the table, because the number
+  // the setting exists to move is a number the engine has to actually be using.
+  //
+  // A turn can hand a villain *extra* growth, because a second crime expiring
+  // while the player was busy diverts attention as well. So the claim is about
+  // the cheapest turn there is: attend one crime and everybody you were not
+  // attending pays exactly the setting's number and nothing else. Villains with
+  // open work of their own are left out of the sample, because one of those
+  // expiring is the other way a turn goes wrong.
+  const observedGrowth = (threat: ThreatLevel, seed: number): number | null => {
+    const expected = divertedGrowth(threat);
+    const { session } = GameSession.newGame({
+      realName: 'City Test',
+      alias: 'City Test',
+      powerSet: 'Telekinesis',
+      origin: 'alien',
+      threat,
+      seed,
+    });
+    const gains: number[] = [];
+    for (let turn = 0; turn < 40 && !session.isOver && session.openIncidents.length > 0; turn += 1) {
+      const incident = session.openIncidents[0]!;
+      const openFor = new Set(session.openIncidents.map((i) => i.villainId));
+      const others = session.villains.filter(
+        (v) =>
+          v.status === 'active' &&
+          v.boss === null &&
+          v.id !== incident.villainId &&
+          !openFor.has(v.id) &&
+          v.influence + expected <= MAX_INFLUENCE,
+      );
+      if (others.length === 0) {
+        session.patrol();
+        continue;
+      }
+      const before = new Map(others.map((v) => [v.id, v.influence]));
+      try {
+        const [a, b] = pickTwo(new Random(turn * 7919 + 1));
+        session.resolvePlayerIncident(incident.id, a, b);
+      } catch {
+        break;
+      }
+      for (const v of others) gains.push(v.influence - (before.get(v.id) ?? 0));
+    }
+    return gains.length === 0 ? null : Math.min(...gains);
+  };
+
+  for (const threat of THREAT_LEVELS) {
+    const label = THREAT_DEFS[threat].label;
+    const { session } = GameSession.newGame({
+      realName: 'City Test',
+      alias: 'City Test',
+      powerSet: 'Telekinesis',
+      origin: 'alien',
+      threat,
+      seed: 4711,
+    });
+    check(`a new run is the ${label.toLowerCase()} city it was set to`, session.threat === threat, `${session.threat}`);
+    check(
+      `the ${label.toLowerCase()} floor is the one its roster is measured against`,
+      session.trustFloor === trustFloor(session.allHeroes.length, threat),
+      `${session.trustFloor} vs ${trustFloor(session.allHeroes.length, threat)}`,
+    );
+    check(
+      `a save keeps the ${label.toLowerCase()} city`,
+      GameSession.fromSnapshot(session.snapshot()).threat === threat,
+    );
+
+    let observed: number | null = null;
+    for (let seed = 1; seed <= 4 && observed === null; seed += 1) {
+      observed = observedGrowth(threat, seed * 104729);
+    }
+    check(
+      `inattention costs ${divertedGrowth(threat)} a turn on ${onCity(threat)}`,
+      observed === divertedGrowth(threat),
+      `cheapest turn measured ${observed}`,
+    );
+  }
+  const unasked = GameSession.newGame({
+    realName: 'Default',
+    alias: 'Default',
+    powerSet: 'Flight',
+    origin: 'genetic',
+    seed: 5,
+  });
+  check('a run with no city named gets the average one', unasked.session.threat === DEFAULT_THREAT, `${unasked.session.threat}`);
+}
+
 console.log("the city's trust");
 {
   const { session } = GameSession.newGame({
@@ -565,8 +760,16 @@ console.log("the city's trust");
   check('trust is the sum of the roster', session.trust === summed, `${session.trust} vs ${summed}`);
   check('the engine and the rules agree on that sum', rosterTrust(session.allHeroes) === summed);
   check('a fresh city starts above the floor', session.trust > session.trustFloor, `${session.trust} vs ${session.trustFloor}`);
-  check('the floor is a debt, not a surplus', TRUST_FLOOR_PER_HERO < 0, `${TRUST_FLOOR_PER_HERO}`);
-  check('a bigger roster is a bigger promise', trustFloor(5) < trustFloor(3), `${trustFloor(3)} -> ${trustFloor(5)}`);
+  check(
+    'the floor is a debt, not a surplus, on every city',
+    THREAT_LEVELS.every((t) => trustFloorPerHero(t) < 0),
+    THREAT_LEVELS.map((t) => trustFloorPerHero(t)).join(', '),
+  );
+  check(
+    'a bigger roster is a bigger promise',
+    THREAT_LEVELS.every((t) => trustFloor(5, t) < trustFloor(3, t)),
+    `on average: ${trustFloor(3, DEFAULT_THREAT)} -> ${trustFloor(5, DEFAULT_THREAT)}`,
+  );
 
   // What actually empties the city is unattended work: the whole roster takes
   // that hit, which is why one bad night is survivable and a hundred are not.

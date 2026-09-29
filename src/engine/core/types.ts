@@ -1,7 +1,7 @@
 import type { Approach } from '../data/approaches';
 import type { BossPower } from '../data/bosses';
 import type { CellId } from '../data/cells';
-import type { DifficultyLevel } from '../data/difficulty';
+import type { DifficultyLevel, ThreatLevel } from '../data/difficulty';
 import type { District } from '../data/districts';
 import type { IncidentType } from '../data/incidentTypes';
 import type { PowerOrigin } from '../data/origins';
@@ -91,6 +91,12 @@ export interface CitySnapshot {
   /** Monotonic, snapshotted so ids stay unique and deterministic across loads. */
   idCounter: number;
   turn: number;
+  /**
+   * Which city this run is in. Chosen once at new game and never re-rolled, so
+   * it has to survive a load: a save that came back on a different threat level
+   * would be a run the player did not agree to finish.
+   */
+  threat: ThreatLevel;
   playerHeroId: string;
   heroes: HeroData[];
   villains: VillainData[];
@@ -141,8 +147,9 @@ export interface CollateralResolution {
 }
 
 /**
- * v4: villains can be grown into bosses by neglect, and a boss at zero takes a
- * fork (killed for the whole roster's standing, or contained and back before the
- * night is out). Villains carry the power that made them a boss.
+ * v5: a run picks how hard the city is before the first night, and that choice
+ * scales the price of diverted attention and the trust floor, so it is part of
+ * the save rather than a UI preference. v4 is the boss release; those files no
+ * longer load, and there is still no migration between versions.
  */
-export const SNAPSHOT_VERSION = 4;
+export const SNAPSHOT_VERSION = 5;

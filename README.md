@@ -55,6 +55,25 @@ You can also **hunt** someone directly, any time, even when they are not committ
 full turn and knocks back 1.4× — it took the whole night. Without it, a villain closest to winning would
 be completely unreachable.
 
+## How hard is the city
+
+A new run picks one of four cities, and that choice moves the two numbers above — the price of
+inattention and how much debt the city will carry — and nothing else:
+
+| | Unattended growth | Trust floor per guardian | Focus strategy, mean run |
+| --- | --- | --- | --- |
+| Easy | +5 | −6 | 244 turns, 24/200 survived |
+| Average | +6 | −3 | 100 turns, 2/200 survived |
+| Difficult | +8 | −2 | 44 turns, 0/200 survived |
+| Backbreaking | +10 | −1 | 12 turns, 0/200 survived |
+
+A harder city is **not** a city that decays — there is still no tide, and every point a villain gains is
+a point they gained because you were somewhere else. It also does not make the individual incidents
+harder. It only changes what your attention buys you and how long the city will put up with you.
+
+It changes how a run fails as much as how long it lasts: an Easy run is lost to conquest, a Backbreaking
+one to the city's patience. See [DESIGN.md](./DESIGN.md) §10.5.
+
 ## Bosses: the ones you let go
 
 At **55 influence** a villain stops being a problem and starts being something you have to go and get.
@@ -75,9 +94,9 @@ When one reaches zero you are choosing between the two available answers, and bo
 
 Permanent and expensive, or free and repeating.
 
-The playtest measures three strategies over 200 seeds: never intervening averages 37 turns, attending
-random incidents averages 44, and **focusing on whoever is closest to winning averages 100 with 2
-survivors**. Aimless heroics is barely better than doing nothing.
+The playtest measures three strategies over 200 seeds on the Average city: never intervening averages
+37 turns, attending random incidents averages 44, and **focusing on whoever is closest to winning
+averages 100 with 2 survivors**. Aimless heroics is barely better than doing nothing.
 
 ## Systems
 
@@ -90,6 +109,7 @@ survivors**. Aimless heroics is barely better than doing nothing.
 | **Villains** | The second board. Influence, external backers, and a hunt action. |
 | **Bosses** | Neglected villains earn a second power at 55 influence, resist mopping-up, and end in a fork: kill them and pay standing, or contain them and get the same fight again. |
 | **City trust** | The roster's reputations, summed, against a floor. The other way to lose: the city stops believing in its guardians. |
+| **Difficulty** | Four cities. Each moves the price of inattention and the trust floor; none of them adds a decay. |
 | **Inheritance** | When your hero dies, you become another. The city still needs a guardian. |
 | **Secret identity** | A job and specific people are at stake. Exposure is rolled, not narrated. Disclosure is a real counter-strategy. |
 | **Metapolitics** | Origin decides a hero's politics. Cells recruit by conduct; external organisations warp incident modifiers. |
@@ -111,7 +131,7 @@ src/
       powersets.ts            16 PowerSets + alias generation
       origins.ts              4 Origins
       approaches.ts           5 Approaches
-      difficulty.ts           4 difficulty tiers (d20 targets 5/10/15/20)
+      difficulty.ts           4 incident difficulty tiers (d20 targets 5/10/15/20) + the 4 run threat tiers
       districts.ts            9 fixed districts
       incidentTypes.ts        5 incident types + per-approach modifier shapes
       villains.ts             influence tiers, knockback, hunting multiplier

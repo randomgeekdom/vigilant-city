@@ -5,6 +5,7 @@ import type { ResolutionReport } from './engine/core/types';
 import type { Approach } from './engine/data/approaches';
 import type { PowerSet } from './engine/data/powersets';
 import type { PowerOrigin } from './engine/data/origins';
+import type { ThreatLevel } from './engine/data/difficulty';
 import { Sidebar } from './ui/components/Sidebar';
 import { ChronicleView } from './ui/components/ChronicleView';
 import { NewGame } from './ui/components/NewGame';
@@ -70,6 +71,7 @@ export function App() {
     alias: string;
     powerSet: PowerSet;
     origin: PowerOrigin;
+    threat: ThreatLevel;
   }) => {
     const { session } = GameSession.newGame(opts);
     sessionRef.current = session;

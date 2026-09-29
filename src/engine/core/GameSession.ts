@@ -12,7 +12,14 @@ import {
   bossSeedChance,
   MAX_ACTIVE_BOSSES,
 } from '../data/bosses';
-import { difficultyModifier, difficultyRoll, type DifficultyLevel } from '../data/difficulty';
+import {
+  DEFAULT_THREAT,
+  difficultyModifier,
+  difficultyRoll,
+  divertedGrowth,
+  type DifficultyLevel,
+  type ThreatLevel,
+} from '../data/difficulty';
 import { DISTRICT_LABELS, DISTRICTS } from '../data/districts';
 import { INCIDENT_TYPE_DEFS } from '../data/incidentTypes';
 import { ORIGIN_DEFS } from '../data/origins';
@@ -21,7 +28,6 @@ import { rosterTrust, TRUST_LOST, trustFloor as requiredTrust, trustVerdict, typ
 import { CELL_DEFS } from '../data/cells';
 import type { OrganizationData } from '../data/organizations';
 import {
-  DIVERTED_GROWTH,
   HUNT_MULTIPLIER,
   INFLUENCE_ON_FAILURE,
   knockback,
@@ -64,6 +70,12 @@ export interface NewGameOptions {
   alias: string;
   powerSet: import('../data/powersets').PowerSet;
   origin: import('../data/origins').PowerOrigin;
+  /**
+   * Which city to play. Optional only so the harness can start a run without
+   * naming one; the UI always asks, because the point of the setting is that
+   * the player picks it.
+   */
+  threat?: ThreatLevel;
   seed?: number;
 }
 
@@ -74,6 +86,7 @@ export interface NewGameResult {
 
 interface SessionState {
   turn: number;
+  threat: ThreatLevel;
   playerHeroId: string;
   heroRoster: HeroData[];
   villains: VillainData[];
@@ -113,6 +126,7 @@ export class GameSession {
     const rng = new Random(seed);
     const state: SessionState = {
       turn: 0,
+      threat: opts.threat ?? DEFAULT_THREAT,
       playerHeroId: '',
       heroRoster: [],
       villains: [],
@@ -140,6 +154,7 @@ export class GameSession {
     }
     const state: SessionState = {
       turn: snap.turn,
+      threat: snap.threat,
       playerHeroId: snap.playerHeroId,
       heroRoster: structuredClone(snap.heroes),
       villains: structuredClone(snap.villains),
@@ -190,6 +205,11 @@ export class GameSession {
     return this.state.turn;
   }
 
+  /** Which city this run is in. Fixed at new game; the player chose it, not the dice. */
+  get threat(): ThreatLevel {
+    return this.state.threat;
+  }
+
   get isOver(): boolean {
     return this.state.over;
   }
@@ -213,7 +233,7 @@ export class GameSession {
 
   /** What the city needs to keep believing in us. Rises with the roster it is relying on. */
   get trustFloor(): number {
-    return requiredTrust(this.state.heroRoster.length);
+    return requiredTrust(this.state.heroRoster.length, this.state.threat);
   }
 
   get trustState(): TrustVerdict {
@@ -356,11 +376,14 @@ export class GameSession {
   /**
    * Stopping one crime is what lets another villain get stronger. Attention is
    * spent whether or not the work succeeded, so this runs on every resolution.
+   * The price of inattention is the run's threat level; the cause of it is not
+   * negotiable, which is the whole point.
    */
   private divertAttention(fromVillainId: string): void {
+    const growth = divertedGrowth(this.state.threat);
     for (const villain of this.state.villains) {
       if (villain.status !== 'active' || villain.id === fromVillainId) continue;
-      this.raiseInfluence(villain, DIVERTED_GROWTH + bossGrowth(villain));
+      this.raiseInfluence(villain, growth + bossGrowth(villain));
     }
   }
 
@@ -894,6 +917,7 @@ export class GameSession {
       rngState: this.rng.state,
       idCounter: this.idCounter,
       turn: this.state.turn,
+      threat: this.state.threat,
       playerHeroId: this.state.playerHeroId,
       heroes: structuredClone(this.state.heroRoster),
       villains: structuredClone(this.state.villains),

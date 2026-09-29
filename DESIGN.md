@@ -245,7 +245,9 @@ There is no passive growth and no rising tide. The city is not decaying. The pre
 
 - Attend a villain → they lose **35** influence (25 if backed).
 - Fail against them → they gain **10**. Failure is publicity.
-- **Every *other* active villain gains 6.** This is not a difficulty slider; it is the whole game.
+- **Every *other* active villain gains 6.** This is not a background decay; it is the whole game. The
+  6 is the price of inattention, and it is the one number on this list the player gets to choose
+  (§10.5) — but its *cause* is not negotiable, because it is always your turn spent elsewhere.
 
 So the board's equilibrium is arithmetic, not authored:
 
@@ -261,6 +263,10 @@ New villains arrive on 18% of turns, so the board grows on its own. **Holding th
 periodically choosing somebody to finish off** — and that is itself an act of neglect, because everyone
 you are not attacking grows while you do it. The interesting decision is never "which incident is worth
 more" but "who am I willing to let walk, and for how long."
+
+The cliff is a function of that 6, so it moves with the difficulty setting rather than being a fixed
+number in the design: on the Average city the board holds six and the cliff is seven, and on a
+Backbreaking one it holds four and the cliff is five.
 
 ### 10.2 Hunting
 
@@ -300,6 +306,9 @@ for their two numbers, and it is what the player is reading when they work out w
 | Knockback, work mopped up at the scene | −35 (−40 backed) | **×0.5 to ×0.65** |
 | Knockback, hunted directly | −35 × 1.4 | **×0.8 to ×0.95 of that** |
 | Seeds their own work | 30%/turn | 40%/turn |
+
+Growth in that table is the Average city's price of inattention (§10.5) plus the boss's own; a harder
+city raises the first term and leaves the second alone.
 
 The split in that table is the whole mechanic. Cleaning up after a boss barely touches them, so **going
 and getting them is the only answer** rather than an optional extra — and the playtest asserts exactly
@@ -347,8 +356,9 @@ at all, because that reads only the first power. TODO covers both.
 
 ### 10.4 What the playtest actually says
 
-Three strategies, 200 seeds each, 600-turn cap. The last column is how many of those runs ended on the
-city losing faith rather than on a villain taking it (§11.1):
+Three strategies, 200 seeds each, 600-turn cap, on the **Average** city (§10.5 — that is the default, and
+it is the run the rest of this document describes). The last column is how many of those runs ended on
+the city losing faith rather than on a villain taking it (§11.1):
 
 | Strategy | Mean run | Survived | Ended on trust |
 | --- | --- | --- | --- |
@@ -381,6 +391,62 @@ precisely what the resistance numbers make pointless. That is the script correct
 player who has read the tile, not a constant tuned to flatter the result — and the mechanic is separately
 asserted, so a regression in it fails the playtest rather than showing up as a nicer number.
 
+### 10.5 How hard is the city
+
+A run picks its city before the first night, in `data/difficulty.ts`, and the choice is part of the save
+(snapshot v5) rather than a UI preference — a run that came back on a different city would be a run the
+player did not agree to finish. It moves exactly two numbers, and they are the two clocks the game ends on:
+
+| | Unattended growth | Trust floor per guardian | Villains the city can hold | The cliff is one above |
+| --- | --- | --- | --- | --- |
+| Easy | +5 | −6 | 8 | 9 |
+| Average | +6 | −3 | 6 | 7 |
+| Difficult | +8 | −2 | 5 | 6 |
+| Backbreaking | +10 | −1 | 4 | 5 |
+
+**A harder city is not a city that decays.** There is still no tide and nothing in the background gets
+worse on its own. Every point a villain gains is a point they gained because the player was busy
+somewhere else; the setting changes the *magnitude* of inattention, never its cause. Villain arrival
+rate is deliberately left alone — who moves into the city is the city's business, not the setting's.
+
+**It does not touch the per-incident difficulty** in §5 either. That would be a hit-point slider wearing
+a costume: it changes how often the dice agree, not what the game asks the player to do. Nobody reaches
+a better decision because their target number went from 10 to 15.
+
+**The trust floor runs the counterintuitive way round.** The floor is negative, so a hard city has a
+*shallower* allowance, not a deeper one — `trustFloorPerHero` climbs towards zero as the city gets
+harder. A run ends when trust goes *under* the floor, so more room below zero is more run, not less.
+The first pass at this table ran the floor the intuitive way and the playtest caught it in one run:
+Easy lost the city in twelve turns while Average ran a hundred, so the knob was making the game easier
+the harder it got. The table above is the corrected one.
+
+#### What the sweep says
+
+The same three strategies, 200 seeds each, on each city:
+
+| City | Never intervene | Attend randomly | Focus | Focus survived | Focus ended on trust |
+| --- | --- | --- | --- | --- | --- |
+| Easy | 63 | 62 | **244** | 24/200 | 2 |
+| Average | 37 | 44 | **100** | 2/200 | 120 |
+| Difficult | 20 | 29 | **44** | 0/200 | 169 |
+| Backbreaking | 9 | 8 | **12** | 0/200 | 188 |
+
+Three things worth keeping:
+
+1. **The setting is genuinely a setting, and it does not break the game.** Focused play is 244 / 100 /
+   44 / 12 down the ladder, and focusing still beats both aimless play and doing nothing on *every*
+   city. A knob that left the strategy ordering intact while moving run length by a factor of twenty is
+   a difficulty setting; one that only reordered the strategies would have been a different game.
+2. **The two clocks swap ends.** An Easy run is almost never lost to lost confidence — only 2/200 end on
+   trust, so the floor barely fires. A Backbreaking run almost always is: 188/200, because a floor of
+   −1 per guardian is three bad nights from the end. Difficulty does not just shorten runs, it changes
+   *how they fail*, which is the more interesting thing for the player to be choosing between.
+3. **Easy is winnable and still not a formality.** 24/200 focused runs survive the 600-turn cap, against
+   2/200 on Average, and the harness is three lines of scripted heuristics rather than a player.
+
+Average is the identity: it is the run the rest of this document was measured against, so its row is
+unchanged from before the setting existed, and it is what a run gets if the caller does not name a city.
+
 ## 11. Win / loss
 
 - A villain reaching Imminent ends the run: the city answers to them.
@@ -403,13 +469,16 @@ moved for — work answered (up or down), a cover blown (−5), and crimes nobod
 it is the piece that was missing.
 
 ```
-floor = -3 x heroes on the roster
+floor = trust per guardian x heroes on the roster
+      = -3 x roster size        on the Average city (§10.5)
 ```
 
 Three points of debt **per guardian**, so a bigger roster is a bigger promise rather than four people
 inheriting the credit for one. It is negative because goodwill is a debt: the city starts willing to
 give you the benefit of the doubt and only asks for it back after you fail. A new run starts at 0 with a
-floor of −9, so there are nine points of slack to spend.
+floor of −9, so there are nine points of slack to spend. The per-guardian number is chosen by the run's
+difficulty setting rather than being global — see §10.5 for the table, including why a harder city has a
+*shallower* allowance and not a deeper one.
 
 What the playtest found is that this is a **patience clock, not a skill clock**, and that is the more
 interesting result. Trust at the end of a run sits in a narrow band (median ≈ −10) whether you focused,

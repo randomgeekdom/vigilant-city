@@ -176,27 +176,27 @@ input:focus {
   font-weight: 600;
 }
 
-.grid-origins {
+.grid-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 8px;
 }
-.origin {
+.card {
   text-align: left;
   padding: 11px 13px;
   display: grid;
   gap: 4px;
 }
-.origin span {
+.card span {
   color: var(--muted);
   font-size: 12px;
   font-weight: 400;
 }
-.origin.sel {
+.card.sel {
   border-color: var(--accent);
   background: var(--panel-2);
 }
-.origin.sel span {
+.card.sel span {
   color: var(--ink);
 }
 
