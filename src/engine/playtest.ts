@@ -30,7 +30,7 @@ import {
 import { Random } from './core/Random';
 import { ideologyModifier } from './core/politics';
 import { rosterTrust, TRUST_LOST, trustFloor } from './data/reputation';
-import { BACKED_PENALTY, HUNT_MULTIPLIER, INFLUENCE_ON_FAILURE, INFLUENCE_ON_SUCCESS, MAX_INFLUENCE } from './data/villains';
+import { BACKED_PENALTY, HUNT_MULTIPLIER, INFLUENCE_ON_FAILURE, INFLUENCE_ON_SUCCESS, knockback, MAX_INFLUENCE } from './data/villains';
 
 let failures = 0;
 
@@ -218,6 +218,18 @@ console.log('villains are the second board');
   const activeCount = session.villains.filter((v) => v.status === 'active').length;
   check('a villain exists at start', activeCount > 0);
 
+  // Backing is a deduction, and that is the whole rule. The engine once added
+  // the penalty the other way round and this harness re-derived the same
+  // expression by hand with the sign flipped, so the two agreed with each other
+  // and disagreed with the game by 10. Everything below reads `knockback` now
+  // rather than rebuilding it, and this pins the direction so a future
+  // inversion fails here instead of quietly handing every villain more pushback.
+  check(
+    'backing makes a villain harder to move, not easier',
+    knockback('ascendants') === INFLUENCE_ON_SUCCESS + BACKED_PENALTY && knockback('ascendants') > knockback(null),
+    `unbacked ${knockback(null)}, backed ${knockback('ascendants')}`,
+  );
+
   // Attending one villain's work is what lets the others grow.
   const others = session.villains.filter((v) => v.status === 'active' && v.id !== session.openIncidents[0]!.villainId);
   const before = others.map((v) => v.influence);
@@ -254,7 +266,7 @@ console.log('hunting');
       // Influence floors at 0, and other heroes cleaning up the target's
       // remaining work in the same turn can add to the drop, so this is a floor.
       const drop = influenceBefore - target.influence;
-      const plain = Math.abs(INFLUENCE_ON_SUCCESS) - (target.backedBy ? BACKED_PENALTY : 0);
+      const plain = Math.abs(knockback(target.backedBy));
       const floor = Math.min(Math.round(plain * HUNT_MULTIPLIER), influenceBefore);
       check(
         'a successful hunt knocks the target back harder than their incident would',
@@ -347,13 +359,21 @@ console.log('villains grow into bosses');
   // all, and the same night spent hunting them is several times better.
   if (firstBoss) {
     const boss = firstBoss;
-    const plain = Math.abs(INFLUENCE_ON_SUCCESS) - (boss.backedBy ? BACKED_PENALTY : 0);
+    const plain = Math.abs(knockback(boss.backedBy));
     const def = BOSS_POWER_DEFS[boss.boss!];
     const mopped = plain * def.resistance;
     const hunted = plain * HUNT_MULTIPLIER * def.huntResistance;
     const half = 0.5;
     const moppedExpected = half * -mopped + half * INFLUENCE_ON_FAILURE;
     const huntedExpected = half * -hunted + half * INFLUENCE_ON_FAILURE;
+    // Printed rather than only asserted: DESIGN 10.3 quotes these two as the
+    // arithmetic behind the fork, and a worked example written out by hand is
+    // the first thing to go stale when a number moves.
+    console.log(
+      `  info ${boss.alias} (${def.tell})` +
+        ` mopping up ${moppedExpected.toFixed(1)}/attempt from ${mopped.toFixed(1)},` +
+        ` hunting ${huntedExpected.toFixed(1)}/attempt from ${hunted.toFixed(1)}`,
+    );
     check(
       'mopping up after a boss barely makes progress',
       moppedExpected > -plain / 8,
@@ -374,7 +394,9 @@ console.log('a boss at zero is a fork');
   // Non-lethal play is forced by only ever picking two non-lethal approaches, and
   // the whole thing is swept over many seeds because a single run is not
   // guaranteed to contain a boss with two pieces of work on the board at the
-  // moment it is taken down.
+  // moment it is taken down. The count is set by that second requirement rather
+  // than by taste: at 24 seeds the sweep found none, and a check that cannot
+  // reach its own precondition is not a check.
   const nonLethal: [Approach, Approach] = ['diplomatic', 'stealthy'];
   let containments = 0;
   let returned = 0;
@@ -386,7 +408,7 @@ console.log('a boss at zero is a fork');
   let trustAfterContainment = 0;
   let earnedAtContainment = 0;
   let rosterAtContainment = 0;
-  for (let seed = 1; seed <= 24; seed += 1) {
+  for (let seed = 1; seed <= 96; seed += 1) {
     const { session } = GameSession.newGame({
       realName: 'Fork Test',
       alias: 'Fork Test',
@@ -461,44 +483,50 @@ console.log('a boss at zero is a fork');
   );
 
   // The lethal branch, and the price the user chose for it.
-  const { session: lethalRun } = GameSession.newGame({
-    realName: 'Lethal Test',
-    alias: 'Lethal Test',
-    powerSet: 'SuperStrength',
-    origin: 'genetic',
-    seed: 9001,
-  });
   let sawKill = false;
   let killWasFlaggedBoss = false;
   let trustBefore = 0;
   let trustAfter = 0;
   let earned = 0;
   let rosterAtKill = 0;
-  for (let turn = 0; turn < 400 && !lethalRun.isOver; turn += 1) {
-    const boss = lethalRun.villains.find((v) => v.boss !== null && v.status === 'active');
-    if (!boss) {
-      lethalRun.patrol();
-      continue;
-    }
-    const work = lethalRun.openIncidents.filter((i) => i.villainId === boss.id);
-    trustBefore = lethalRun.trust;
-    rosterAtKill = lethalRun.allHeroes.length;
-    let report;
-    try {
-      report = work.length > 0
-        ? lethalRun.resolvePlayerIncident(work[0]!.id, 'lethal', 'tactical')
-        : lethalRun.huntVillain(boss.id, 'lethal', 'tactical');
-    } catch {
-      break;
-    }
-    if (report.villain?.outcome === 'killed') {
-      killWasFlaggedBoss = report.villain.boss;
-      // The resolution itself moves trust, so the price of the execution is what
-      // is left once the night's own reputation gain is accounted for.
-      earned = report.reputationDelta;
-      trustAfter = lethalRun.trust;
-      sawKill = true;
-      break;
+  // Swept for the same reason as the containment half: one seed is not a
+  // guarantee that a boss ever comes up, and a check pinned to a lucky seed is a
+  // check that fails the next time a balance number moves rather than the next
+  // time the mechanic breaks.
+  for (let seed = 1; seed <= 24 && !sawKill; seed += 1) {
+    const { session: lethalRun } = GameSession.newGame({
+      realName: 'Lethal Test',
+      alias: 'Lethal Test',
+      powerSet: 'SuperStrength',
+      origin: 'genetic',
+      seed: seed * 9001,
+    });
+    for (let turn = 0; turn < 400 && !lethalRun.isOver; turn += 1) {
+      const boss = lethalRun.villains.find((v) => v.boss !== null && v.status === 'active');
+      if (!boss) {
+        lethalRun.patrol();
+        continue;
+      }
+      const work = lethalRun.openIncidents.filter((i) => i.villainId === boss.id);
+      trustBefore = lethalRun.trust;
+      rosterAtKill = lethalRun.allHeroes.length;
+      let report;
+      try {
+        report = work.length > 0
+          ? lethalRun.resolvePlayerIncident(work[0]!.id, 'lethal', 'tactical')
+          : lethalRun.huntVillain(boss.id, 'lethal', 'tactical');
+      } catch {
+        break;
+      }
+      if (report.villain?.outcome === 'killed') {
+        killWasFlaggedBoss = report.villain.boss;
+        // The resolution itself moves trust, so the price of the execution is what
+        // is left once the night's own reputation gain is accounted for.
+        earned = report.reputationDelta;
+        trustAfter = lethalRun.trust;
+        sawKill = true;
+        break;
+      }
     }
   }
   check('a boss can be killed outright', sawKill);
@@ -631,10 +659,19 @@ console.log('how hard is the city');
   for (const row of rows) {
     check(`focusing still beats spreading on ${onCity(row.threat)}`, row.focus.avg > row.spread.avg, `${row.focus.avg} vs ${row.spread.avg}`);
     check(`focusing still beats doing nothing on ${onCity(row.threat)}`, row.focus.avg > row.neglect.avg, `${row.focus.avg} vs ${row.neglect.avg}`);
+    // The per-city turn band this replaces was a fixed +10 on every city, and ten
+    // turns means something completely different on a run of 19 than on a run of
+    // 220. It was also asserting the wrong half of the claim, because aimless
+    // play does buy time where the trust clock is what ends the run: attending
+    // any incident at all stops it expiring, and expiring is what spends the
+    // city's patience. What aimless play never buys is a run it survives, which
+    // is the half that matters and is asserted here instead. The turn band
+    // survives on the Average city above, which is the city DESIGN 10.4 measures
+    // it on.
     check(
-      `aimless intervention is still not a strategy on ${onCity(row.threat)}`,
-      row.spread.avg <= row.neglect.avg + 10,
-      `${row.spread.avg} vs ${row.neglect.avg}`,
+      `aimless intervention never survives a run on ${onCity(row.threat)}`,
+      row.spread.survived === 0,
+      `${row.spread.survived}/200 survived`,
     );
   }
   for (let i = 1; i < rows.length; i += 1) {

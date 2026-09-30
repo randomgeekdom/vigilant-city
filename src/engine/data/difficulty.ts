@@ -12,9 +12,10 @@
  * about what the city asks of you rather than what the work is like:
  *
  *  - **What attention costs.** Every villain you did not attend gains
- *    `divertedGrowth` a turn. On Average that is 6 against a knockback of 35,
- *    which is the arithmetic that holds the city steady at up to six villains
- *    at once (§10.1). Raise it and the same night of attention buys less.
+ *    `divertedGrowth` a turn. On Average that is 5 against a live knockback of 30,
+ *    which is the arithmetic that holds the city steady at up to seven villains at
+ *    once (§10.1) — seven is exactly break-even and eight is the cliff. Raise it and
+ *    the same night of attention buys less.
  *  - **How much debt the city will carry.** The trust floor is an allowance of
  *    goodwill per guardian, and crimes nobody showed up for are very nearly the
  *    only thing that spends it (§11.1). A generous city forgives a long run of
@@ -80,29 +81,29 @@ export const THREAT_DEFS: Record<ThreatLevel, ThreatDef> = {
   easy: {
     label: 'Easy',
     blurb:
-      'Patient, and your attention goes a long way. Unattended villains gain 5 a turn; the city carries 6 points of debt per guardian.',
-    divertedGrowth: 5,
+      'Patient, and your attention goes a long way. Unattended villains gain 4 a turn; the city carries 6 points of debt per guardian.',
+    divertedGrowth: 4,
     trustFloorPerHero: -6,
   },
   average: {
     label: 'Average',
     blurb:
-      'The city as it was always meant to be played. Unattended villains gain 6 a turn; the city carries 3 points of debt per guardian.',
-    divertedGrowth: 6,
+      'The city as it was always meant to be played. Unattended villains gain 5 a turn; the city carries 3 points of debt per guardian.',
+    divertedGrowth: 5,
     trustFloorPerHero: -3,
   },
   difficult: {
     label: 'Difficult',
     blurb:
-      'Attention buys less, and the city is quicker to give up on you. Unattended villains gain 8 a turn; the city carries 2 points of debt per guardian.',
-    divertedGrowth: 8,
+      'Attention buys less, and the city is quicker to give up on you. Unattended villains gain 6 a turn; the city carries 2 points of debt per guardian.',
+    divertedGrowth: 6,
     trustFloorPerHero: -2,
   },
   backbreaking: {
     label: 'Backbreaking',
     blurb:
-      'Nothing is spare and nothing is forgiven. Unattended villains gain 10 a turn; the city carries 1 point of debt per guardian.',
-    divertedGrowth: 10,
+      'Nothing is spare and nothing is forgiven. Unattended villains gain 8 a turn; the city carries 1 point of debt per guardian.',
+    divertedGrowth: 8,
     trustFloorPerHero: -1,
   },
 };

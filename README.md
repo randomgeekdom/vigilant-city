@@ -39,10 +39,10 @@ is never "what is the optimal action" but "what am I willing to let rot."
 The city is not decaying and there is no rising tide. Every incident has a **culprit**, and each villain
 carries **influence** from 0 to 100. Every turn your attention lands on exactly one of them:
 
-- The villain you attend loses **35** influence.
-- **Every other active villain gains 6.** Failure gains them 10 instead.
+- The villain you attend loses **30** influence — 35, less 5 for the organisation standing behind them.
+- **Every other active villain gains 5.** Failure gains them 10 instead.
 
-That arithmetic sets the board's equilibrium at about six simultaneous villains; seven is the cliff. New
+That arithmetic sets the board's equilibrium at about seven simultaneous villains; eight is the cliff. New
 ones keep arriving, so holding the line means periodically deciding who to finish off — which is itself
 an act of neglect. **At 100 influence a villain has won and the run ends.**
 
@@ -62,10 +62,10 @@ inattention and how much debt the city will carry — and nothing else:
 
 | | Unattended growth | Trust floor per guardian | Focus strategy, mean run |
 | --- | --- | --- | --- |
-| Easy | +5 | −6 | 244 turns, 24/200 survived |
-| Average | +6 | −3 | 100 turns, 2/200 survived |
-| Difficult | +8 | −2 | 44 turns, 0/200 survived |
-| Backbreaking | +10 | −1 | 12 turns, 0/200 survived |
+| Easy | +4 | −6 | 220 turns, 19/200 survived |
+| Average | +5 | −3 | 110 turns, 2/200 survived |
+| Difficult | +6 | −2 | 42 turns, 0/200 survived |
+| Backbreaking | +8 | −1 | 11 turns, 0/200 survived |
 
 A harder city is **not** a city that decays — there is still no tide, and every point a villain gains is
 a point they gained because you were somewhere else. It also does not make the individual incidents
@@ -89,14 +89,15 @@ When one reaches zero you are choosing between the two available answers, and bo
 
 - **Kill them.** Permanent, and the city knew that name — every hero on the roster takes a point of
   standing for an execution it watched.
-- **Contain them.** Free, and it buys nothing. They are back before the night is out with another power
-  and one more point of growth, and their open incidents never left the board.
+- **Contain them.** Free of the city's standing, and it buys less than it looks. They are back before the
+  night is out with another power and one more point of growth, and their open incidents never left the
+  board.
 
 Permanent and expensive, or free and repeating.
 
 The playtest measures three strategies over 200 seeds on the Average city: never intervening averages
-37 turns, attending random incidents averages 44, and **focusing on whoever is closest to winning
-averages 100 with 2 survivors**. Aimless heroics is barely better than doing nothing.
+33 turns, attending random incidents averages 42, and **focusing on whoever is closest to winning
+averages 110 with 2 survivors**. Aimless heroics is barely better than doing nothing.
 
 ## Systems
 

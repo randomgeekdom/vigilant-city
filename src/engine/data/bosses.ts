@@ -133,9 +133,11 @@ export const MAX_ACTIVE_BOSSES = 2;
  * standing, which is a genuine reason to take it when the roster cannot afford
  * the other one. It is not a way to win the same fight twice.
  *
- * Note the number is smaller than a hunt's knockback (1.4 x 35 x 0.8-0.95 =
- * 39.2-46.6), so in practice a returned boss is one hunt from zero again. The
- * comment used to claim the dent you put in survives, and it does not. TODO.
+ * Note the number against a hunt's knockback (1.4 x 30 x 0.8-0.95 = 33.6-39.9).
+ * At the top of that range a returned boss is still one hunt from zero, and at the
+ * bottom it leaves them on 6.4 and costs a second night, so containment is the
+ * cheap branch rather than the free one it used to be. It is still a stall and not
+ * a strategy: the turn you spent on it bought the roster nothing. TODO.
  */
 export const BOSS_RETURN_INFLUENCE = 40;
 

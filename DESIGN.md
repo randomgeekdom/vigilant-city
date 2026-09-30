@@ -243,20 +243,23 @@ Each villain carries **influence** (0–100) and, sometimes, an external **backe
 There is no passive growth and no rising tide. The city is not decaying. The pressure is purely that
 **your attention is finite and every act spends it on exactly one person:**
 
-- Attend a villain → they lose **35** influence (25 if backed).
+- Attend a villain → they lose **30** influence. That is `INFLUENCE_ON_SUCCESS` (35) less 5 for the
+  organisation behind them, and **every villain in a run arrives with one**, so 30 is the number in play
+  and 35 is the base the rule is written against. Backing is a deduction, not a bonus: they are worth
+  more, so the same attention buys less of them.
 - Fail against them → they gain **10**. Failure is publicity.
-- **Every *other* active villain gains 6.** This is not a background decay; it is the whole game. The
-  6 is the price of inattention, and it is the one number on this list the player gets to choose
+- **Every *other* active villain gains 5.** This is not a background decay; it is the whole game. The
+  5 is the price of inattention, and it is the one number on this list the player gets to choose
   (§10.5) — but its *cause* is not negotiable, because it is always your turn spent elsewhere.
 
 So the board's equilibrium is arithmetic, not authored:
 
 ```
-net per turn = -35 + 6 x (N - 1)
-N = 3  ->  -23     comfortable
-N = 5  ->  -11
-N = 6  ->   -5     still holding
-N = 7  ->   +1     the cliff
+net per turn = -30 + 5 x (N - 1)
+N = 3  ->  -20     comfortable
+N = 5  ->  -10
+N = 7  ->    0     exactly break-even
+N = 8  ->   +5     the cliff
 ```
 
 New villains arrive on 18% of turns, so the board grows on its own. **Holding the line means
@@ -264,8 +267,8 @@ periodically choosing somebody to finish off** — and that is itself an act of 
 you are not attacking grows while you do it. The interesting decision is never "which incident is worth
 more" but "who am I willing to let walk, and for how long."
 
-The cliff is a function of that 6, so it moves with the difficulty setting rather than being a fixed
-number in the design: on the Average city the board holds six and the cliff is seven, and on a
+The cliff is a function of that 5, so it moves with the difficulty setting rather than being a fixed
+number in the design: on the Average city the board holds seven and the cliff is eight, and on a
 Backbreaking one it holds four and the cliff is five.
 
 ### 10.2 Hunting
@@ -303,8 +306,8 @@ for their two numbers, and it is what the player is reading when they work out w
 | --- | --- | --- |
 | Second power | none | one, which sets both numbers below |
 | Unattended growth | +6 | +7, and +1 more for every failed containment |
-| Knockback, work mopped up at the scene | −35 (−40 backed) | **×0.5 to ×0.65** |
-| Knockback, hunted directly | −35 × 1.4 | **×0.8 to ×0.95 of that** |
+| Knockback, work mopped up at the scene | −30 | **×0.5 to ×0.65** |
+| Knockback, hunted directly | −30 × 1.4 | **×0.8 to ×0.95 of that** |
 | Seeds their own work | 30%/turn | 40%/turn |
 
 Growth in that table is the Average city's price of inattention (§10.5) plus the boss's own; a harder
@@ -315,9 +318,12 @@ and getting them is the only answer** rather than an optional extra — and the 
 that, as expected progress per attempt, because a miss hands influence straight back:
 
 ```
-mopping up:   0.5 x -17.5  + 0.5 x +10   =  -3.8 per night
-hunting:      0.5 x -32.6  + 0.5 x +10   = -11.3 per night
+mopping up:   0.5 x -16.5  + 0.5 x +10   =  -3.3 per night
+hunting:      0.5 x -37.8  + 0.5 x +10   = -13.9 per night
 ```
+
+Those are the harness's own numbers for the boss it finds first — Invisibility, at ×0.55 and ×0.9 — and
+the playtest prints them on every run precisely so this example cannot quietly go stale.
 
 Hunting still lands hard on a boss, because it has to. A resistance that applied at full strength to
 hunts as well would make a boss a wall rather than a threat, and the sweep showed exactly that: focused
@@ -347,12 +353,15 @@ The honest summary of the fork: **permanent and expensive, or free and repeating
 that it is the branch which does not cost the city's standing, which is a genuine reason to take it when
 the roster cannot afford the other one. It is not a way to win the same fight twice.
 
-**This branch is weaker than it looks, and the playtest says so.** The harness can contain the same boss
-six times in thirty-five turns, and every time they come back heavier. The reason is arithmetic:
-`BOSS_RETURN_INFLUENCE` is 40 and a hunt deals `1.4 × 35 × 0.8–0.95` = 39.2–46.6, so **a returned boss
-is one hunt from zero again for every power in the set.** Containment is a treadmill, not a setback. It
-also means the escalation has no teeth past its cap — powers three through eight do not change resistance
-at all, because that reads only the first power. TODO covers both.
+**This branch is cheaper than it used to be, and weaker than it still looks.** The arithmetic is
+`BOSS_RETURN_INFLUENCE` at 40 against a hunt at `1.4 × 30 × 0.8–0.95` = 33.6–39.9. At the top of that
+range a returned boss is still one hunt from zero, and at the bottom it leaves them on 6.4 and costs a
+second night — so containment is no longer free, but it is still the branch that costs the city nothing.
+The playtest contains 146 bosses across 96 seeds and 124 of them come back heavier.
+
+The other half is untouched: **the escalation still has no teeth past its cap** — powers three through
+eight do not change resistance at all, because `bossResistance` reads only the first power. TODO covers
+that.
 
 ### 10.4 What the playtest actually says
 
@@ -362,27 +371,36 @@ the city losing faith rather than on a villain taking it (§11.1):
 
 | Strategy | Mean run | Survived | Ended on trust |
 | --- | --- | --- | --- |
-| Never intervene, just patrol | 37 turns | 0/200 | 104 |
-| Attend a random incident | 44 turns | 0/200 | 71 |
-| **Focus on whoever is closest to winning** | **100 turns** | **2/200** | 120 |
+| Never intervene, just patrol | 33 turns | 0/200 | 82 |
+| Attend a random incident | 42 turns | 0/200 | 61 |
+| **Focus on whoever is closest to winning** | **110 turns** | **2/200** | 93 |
 
 Two results worth keeping:
 
-1. **Focusing is the only route to survival, and it is not close.** 100 vs 44 is the whole design
+1. **Focusing is the only route to survival, and it is not close.** 110 vs 42 is the whole design
    functioning as intended.
-2. **Aimless intervention is barely better than doing nothing** (44 vs 37). Turning up and reacting is
+2. **Aimless intervention is barely better than doing nothing** (42 vs 33). Turning up and reacting is
    not a strategy here: you feed every villain you were not aiming at and you take the cascading
    damage on your own hero. The game punishes heroics that are not directed.
 
+   There is a condition on that, and the sweep found it. The claim is about the **conquest** clock, and
+   it is measured as a turn count, so it holds wherever conquest is what ends the run. Where the trust
+   clock is what ends it, merely turning up does buy time, because attending any incident at all stops
+   it expiring and an expiring crime is what spends the city's patience: on a Difficult city, where
+   165/200 focused runs die on trust, aimless play runs 31 turns against 20 for doing nothing. What it
+   never buys anywhere is a run it survives — 0/200 on all four cities, which is what the harness now
+   asserts instead of a turn band, since ten turns means something very different on a run of 20 than on
+   a run of 220.
+
 Focused play still loses 198/200, so the run is not a formality — but it is winnable by playing well,
 which is the correct shape. Note that focusing buys *time*, not safety: it is the only strategy that
-survives long enough to run into the trust floor, and 120 of its 198 losses are there rather than in a
+survives long enough to run into the trust floor, and 93 of its 198 losses are there rather than in a
 fight with a villain.
 
 **Bosses made the whole city harder, and closed the gap between the strategies.** Before them the same
-sweep read 54 / 59 / 142 with 6 survivors; now it reads 37 / 44 / 100 with 2. Every strategy got
+sweep read 54 / 59 / 142 with 6 survivors; now it reads 33 / 42 / 110 with 2. Every strategy got
 shorter, which is the point — neglect produces bosses and aimless play feeds them. But the spread
-between focused and aimless play narrowed from 83 turns to 56, when the intent was for it to widen: a
+between focused and aimless play narrowed from 83 turns to 68, when the intent was for it to widen: a
 boss is supposed to punish the player who ignores people *more* than the player who goes and gets them.
 As it stands the mechanic is roughly neutral on that gap. See the TODO.
 
@@ -399,10 +417,22 @@ player did not agree to finish. It moves exactly two numbers, and they are the t
 
 | | Unattended growth | Trust floor per guardian | Villains the city can hold | The cliff is one above |
 | --- | --- | --- | --- | --- |
-| Easy | +5 | −6 | 8 | 9 |
-| Average | +6 | −3 | 6 | 7 |
-| Difficult | +8 | −2 | 5 | 6 |
-| Backbreaking | +10 | −1 | 4 | 5 |
+| Easy | +4 | −6 | 8 | 9 |
+| Average | +5 | −3 | 7 | 8 |
+| Difficult | +6 | −2 | 6 | 7 |
+| Backbreaking | +8 | −1 | 4 | 5 |
+
+**The growth numbers are the free variable and the capacity column is derived from them** — the city
+holds `30 / growth + 1` villains and the cliff is the next one up — so the growth column was re-derived
+when the live knockback turned out to be 30 and not the 40 the engine had been running (see the
+deduction in §10.1). It moved 5/6/8/10 → 4/5/6/8, the same quarter off what inattention costs that came
+off what attention buys, and the capacity column followed it down from 8/6/5/4 to 8/7/6/4.
+
+The alternative was tried and rejected: 4/6/7/10 keeps the old capacity column exactly, and leaves the
+Average city with no winnable run at all (0/200 focused runs survive) and aimless play beating inaction
+there by 12 turns. Keeping a derived column is not worth losing the two claims in §10.4, and the
+equilibrium argument itself is indifferent — a board that fills and a cliff that bites is a board at any
+growth.
 
 **A harder city is not a city that decays.** There is still no tide and nothing in the background gets
 worse on its own. Every point a villain gains is a point they gained because the player was busy
@@ -426,26 +456,26 @@ The same three strategies, 200 seeds each, on each city:
 
 | City | Never intervene | Attend randomly | Focus | Focus survived | Focus ended on trust |
 | --- | --- | --- | --- | --- | --- |
-| Easy | 63 | 62 | **244** | 24/200 | 2 |
-| Average | 37 | 44 | **100** | 2/200 | 120 |
-| Difficult | 20 | 29 | **44** | 0/200 | 169 |
-| Backbreaking | 9 | 8 | **12** | 0/200 | 188 |
+| Easy | 51 | 59 | **220** | 19/200 | 1 |
+| Average | 33 | 42 | **110** | 2/200 | 93 |
+| Difficult | 20 | 31 | **42** | 0/200 | 165 |
+| Backbreaking | 8 | 8 | **11** | 0/200 | 194 |
 
 Three things worth keeping:
 
-1. **The setting is genuinely a setting, and it does not break the game.** Focused play is 244 / 100 /
-   44 / 12 down the ladder, and focusing still beats both aimless play and doing nothing on *every*
+1. **The setting is genuinely a setting, and it does not break the game.** Focused play is 220 / 110 /
+   42 / 11 down the ladder, and focusing still beats both aimless play and doing nothing on *every*
    city. A knob that left the strategy ordering intact while moving run length by a factor of twenty is
    a difficulty setting; one that only reordered the strategies would have been a different game.
-2. **The two clocks swap ends.** An Easy run is almost never lost to lost confidence — only 2/200 end on
-   trust, so the floor barely fires. A Backbreaking run almost always is: 188/200, because a floor of
+2. **The two clocks swap ends.** An Easy run is almost never lost to lost confidence — only 1/200 end on
+   trust, so the floor barely fires. A Backbreaking run almost always is: 194/200, because a floor of
    −1 per guardian is three bad nights from the end. Difficulty does not just shorten runs, it changes
    *how they fail*, which is the more interesting thing for the player to be choosing between.
-3. **Easy is winnable and still not a formality.** 24/200 focused runs survive the 600-turn cap, against
+3. **Easy is winnable and still not a formality.** 19/200 focused runs survive the 600-turn cap, against
    2/200 on Average, and the harness is three lines of scripted heuristics rather than a player.
 
-Average is the identity: it is the run the rest of this document was measured against, so its row is
-unchanged from before the setting existed, and it is what a run gets if the caller does not name a city.
+Average is the identity: it is the run the rest of this document was measured against, it is what a run
+gets if the caller does not name a city, and it is the row the difficulty knob was fitted around.
 
 ## 11. Win / loss
 
@@ -481,12 +511,13 @@ difficulty setting rather than being global — see §10.5 for the table, includ
 *shallower* allowance and not a deeper one.
 
 What the playtest found is that this is a **patience clock, not a skill clock**, and that is the more
-interesting result. Trust at the end of a run sits in a narrow band (median ≈ −10) whether you focused,
-spread your attention, or never intervened at all — the bleed is driven by how much damage the city has
-taken, not by how cleverly you took it. What skill buys is *time*: focused play meets the floor at turn
-~102, aimless play at ~42. So the floor does not add a skill test, it adds the sentence the whole design
-has been circling: **you can survive any single crisis, but you cannot keep doing this for two hundred
-nights.** Long runs now die of exhaustion rather than conquest, and 108/200 focused runs end that way.
+interesting result. Trust at the end of a run sits in a narrow band (median −9 focused, −5 aimless, −8
+never intervening) however you played — the bleed is driven by how much damage the city has taken, not
+by how cleverly you took it. What skill buys is *time*: focused play meets the floor at turn 65 on
+average, aimless play at 21. So the floor does not add a skill test, it adds the sentence the whole
+design has been circling: **you can survive any single crisis, but you cannot keep doing this for two
+hundred nights.** Long runs now die of exhaustion rather than conquest, and 93/200 focused runs end that
+way.
 
 Two consequences worth keeping:
 
