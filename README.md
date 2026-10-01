@@ -62,10 +62,10 @@ inattention and how much debt the city will carry — and nothing else:
 
 | | Unattended growth | Trust floor per guardian | Focus strategy, mean run |
 | --- | --- | --- | --- |
-| Easy | +4 | −6 | 220 turns, 19/200 survived |
-| Average | +5 | −3 | 110 turns, 2/200 survived |
+| Easy | +4 | −6 | 207 turns, 9/200 survived |
+| Average | +5 | −3 | 102 turns, 1/200 survived |
 | Difficult | +6 | −2 | 42 turns, 0/200 survived |
-| Backbreaking | +8 | −1 | 11 turns, 0/200 survived |
+| Backbreaking | +8 | −1 | 10 turns, 0/200 survived |
 
 A harder city is **not** a city that decays — there is still no tide, and every point a villain gains is
 a point they gained because you were somewhere else. It also does not make the individual incidents
@@ -85,19 +85,25 @@ you mop up at the scene barely comes off them (×0.5–0.65); hunting them still
 That split is the mechanic: **cleaning up after a boss is a dead end and going and getting them is the
 answer.** They grow faster, seed more of their own work, and there are at most two at once.
 
+Every power they pick up by getting away takes another bite out of both multipliers — steeply at the
+scene (×0.9 per escape), gently in a hunt (×0.97) — so the power list the player is shown as their
+escalation record is a real number. By the sixth escape, cleaning up after them is not a slower route to
+the same place, it is no route at all, and hunting is what is left.
+
 When one reaches zero you are choosing between the two available answers, and both cost something:
 
 - **Kill them.** Permanent, and the city knew that name — every hero on the roster takes a point of
   standing for an execution it watched.
-- **Contain them.** Free of the city's standing, and it buys less than it looks. They are back before the
-  night is out with another power and one more point of growth, and their open incidents never left the
-  board.
+- **Contain them.** Free of the city's standing, and it costs nights rather than standing. They are back
+  within the hour at **45** — above anything a single hunt can take off them, so it always takes two —
+  with another power on them, one more point of growth, and measurably more resistance on both routes.
+  Their open incidents never left the board.
 
-Permanent and expensive, or free and repeating.
+Permanent and expensive, or cheaper and repeating.
 
 The playtest measures three strategies over 200 seeds on the Average city: never intervening averages
-33 turns, attending random incidents averages 42, and **focusing on whoever is closest to winning
-averages 110 with 2 survivors**. Aimless heroics is barely better than doing nothing.
+32 turns, attending random incidents averages 42, and **focusing on whoever is closest to winning
+averages 102 with 1 survivor**. Aimless heroics is barely better than doing nothing.
 
 ## Systems
 
@@ -108,7 +114,7 @@ averages 110 with 2 survivors**. Aimless heroics is barely better than doing not
 | **Cascading failure** | A failing hero sheds a manifestation, then a power, then dies. Failure costs capability, not health. |
 | **Approaches** | Diplomatic / Lethal / Stealthy / Swift / Tactical. Pick exactly two. Lethal kills; everything else imprisons. |
 | **Villains** | The second board. Influence, external backers, and a hunt action. |
-| **Bosses** | Neglected villains earn a second power at 55 influence, resist mopping-up, and end in a fork: kill them and pay standing, or contain them and get the same fight again. |
+| **Bosses** | Neglected villains earn a second power at 55 influence, resist mopping-up, escalate every time they get away, and end in a fork: kill them and pay standing, or contain them and fight the same fight again for two more nights. |
 | **City trust** | The roster's reputations, summed, against a floor. The other way to lose: the city stops believing in its guardians. |
 | **Difficulty** | Four cities. Each moves the price of inattention and the trust floor; none of them adds a decay. |
 | **Inheritance** | When your hero dies, you become another. The city still needs a guardian. |

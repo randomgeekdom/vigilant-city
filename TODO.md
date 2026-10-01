@@ -26,27 +26,6 @@ Play an Easy and a Backbreaking run start to finish with the meter in front of t
 each one actually feels like it pulls — too early, too late, or not at all — before the next balance pass
 trusts these numbers again.
 
-## The containment branch is a treadmill, and later powers are flavour
-
-Uncovered by the boss work, and the more honest of the two findings. Two related problems in
-`data/bosses.ts`:
-
-- The free-lunch half is now *nearly* fixed by accident, and wants a decision rather than a fix.
-  `BOSS_RETURN_INFLUENCE` is 40 against a hunt at `1.4 × 30 × 0.8–0.95` = 33.6–39.9, so a returned boss is
-  one hunt from zero at the top of that range and two at the bottom. That is only because the live
-  knockback fell 40 → 30 when the backing sign was corrected (see the note at the end of this file), not
-  because anybody chose it, and it left `BOSS_RETURN_INFLUENCE` and the resistances describing each other
-  exactly. Pick the cost deliberately: either raise the return influence, or make a returned boss resist
-  the first hunt, and assert which.
-- Escalation stops mattering at two containments, and this is untouched. `bossGrowth` caps the growth
-  bonus, and `bossResistance` reads only `villain.boss` — the *first* power. So a boss at six powers takes
-  exactly the same effort to move as one at two, and the list the player is shown as their escalation
-  record is mostly decoration.
-
-Decide whether a boss should get measurably harder each time it gets away. If yes, resistance has to
-start reading the whole list. If no, stop showing the player a growing power count as though it meant
-something.
-
 ## Bosses narrowed the strategy gap instead of widening it
 
 Uncovered by the boss work. DESIGN.md §10.4 records the before/after: before bosses the sweep read
@@ -56,6 +35,17 @@ aimless play narrowed from 83 turns to 68 when the intent was to widen it, becau
 punish the player who ignores people *more* than the player who goes and gets them. As it stands the
 mechanic is roughly neutral on that gap. Something that hits only the inattentive, or a cheaper hunt
 against bosses, would restore the ordering. `BOSS_POWERS` in `data/bosses.ts` is the place to look.
+
+Giving the escalation teeth moved this the *wrong* way and the reason is worth keeping, because it
+rules out the obvious fix. Pricing containment deliberately (40 -> 45 return, and a step out of both
+resistance multipliers per escape) took the spread from 68 to 60, but the two halves came apart cleanly:
+with the escalation in place and the return figure left at 40, the Average city still reads 32 / 42 / 110
+and survival *rises* from 2/200 to 6/200. Escalation lands on whoever engages, because mopping up is
+already a dead end and the hunt is the only route left — a boss who escaped six times is six more nights
+for the attentive player. So "make bosses escalate harder" cannot widen this gap; it is a cost charged
+for the fight rather than for the neglect. What is needed is a cost charged for the neglect itself —
+something that gets worse the longer a boss sits unattended and unattended — which is a different
+mechanic from anything in `BOSS_POWERS`.
 
 ## The disclosure path never fires
 
@@ -104,8 +94,8 @@ is entitled to.
 influence instead of 35 — more pushback, against the comment, the constant's name, and the author's own
 commit message. It is now `INFLUENCE_ON_SUCCESS + BACKED_PENALTY`, which is 30 for every villain in a
 run (see the backing item above for why that is all of them). The playtest had been re-deriving the same
-expression by hand with the opposite sign in two places, so it agreed with itself and disagreed with the
-game; it now calls `knockback` and asserts the direction.
+expression by hand with the opposite sign in two places, so it agreed with itself and disagreed with
+the game; it now calls `knockback` and asserts the direction.
 
 That took a quarter off the player's only lever, so the difficulty ladder was re-derived with it rather
 than left to be discovered: `divertedGrowth` went 5/6/8/10 → 4/5/6/8, the same quarter off the price of
@@ -115,3 +105,20 @@ winnable run at all and aimless play beat doing nothing there by 12 turns. The e
 indifferent to the growth number — a board that fills and a cliff that bites is a board at any growth —
 so the claims in DESIGN.md §10.4 won. The trust floors were not re-fitted; they did not need it, and they
 are the subject of the first item on this list.
+
+## Note: where 45 and the resistance steps came from
+`BOSS_RETURN_INFLUENCE` was 40 and `bossResistance` read only `villain.boss`, the first power. Both are
+now deliberate. 40 was never chosen: it was a number the knockback sign fix above left stranded, one
+night clear of the strongest hunt in the game (`1.4 × 30 × 0.95` = 39.9) by a tenth of a point, so a
+returned boss was one hunt from zero and the non-lethal branch was free. 45 is the smallest round figure
+that survives the worst case, and it is still ten under `BOSS_THRESHOLD`.
+
+The resistance steps are `BOSS_RESISTANCE_STEP` 0.9 and `BOSS_HUNT_RESISTANCE_STEP` 0.97, applied per
+escape and shared with `bossGrowth` through `bossEscapes` so the two cannot drift apart. The asymmetry is
+not leniency: mopping up was already nearly pointless, so a steep step there costs nothing real and by the
+sixth escape the expected progress per night goes positive — tidying up after a fully-escalated boss is
+not a slower route to the same place, it is no route at all. The hunt step is gentle because hunting is
+the player's only tool against escalation and a boss has to stay a threat rather than a wall. Both
+columns are printed and asserted in the playtest, so the next person to move a number sees the shape
+before they see the result.
+

@@ -342,26 +342,46 @@ night of crime nobody showed up for, and it is deliberately nothing like a secon
 debt per hero is the entire budget a run has, and pricing lethal force at two of them made the fork a lie,
 because the playtest then took the cheap branch 183 times to 140 and the kills were what ended runs.
 
-**Contain them.** Free, and it buys nothing. They are back before the night is out at **40** — below the
-threshold, so the promotion does not re-trigger — with another power on them and one more point of
-unattended growth for every time you do it, bounded at two so the escalation cannot run away. **Their
-open incidents stay on the board**, which is what stops the non-lethal branch being a reward: a boss who
-is back within the hour has not had their crimes dealt with, and clearing them would hand the player both
-a tidy board and the same villain.
+**Contain them.** Free, and it buys nothing. They are back before the night is out at **45** — below the
+threshold that made them a boss, so the promotion does not re-trigger — with another power on them, one more
+point of unattended growth for every time you do it (bounded at two for growth, though resistance keeps
+worsening past that cap), and measurably harder to shift for having been let go. **Their open incidents stay
+on the board**, which is what stops the non-lethal branch being a reward: a boss who is back within the hour
+has not had their crimes dealt with, and clearing them would hand the player both a tidy board and the same
+villain.
 
-The honest summary of the fork: **permanent and expensive, or free and repeating.** Its one real worth is
+The honest summary of the fork: **permanent and expensive, or cheaper and repeating.** Its one real worth is
 that it is the branch which does not cost the city's standing, which is a genuine reason to take it when
 the roster cannot afford the other one. It is not a way to win the same fight twice.
 
-**This branch is cheaper than it used to be, and weaker than it still looks.** The arithmetic is
-`BOSS_RETURN_INFLUENCE` at 40 against a hunt at `1.4 × 30 × 0.8–0.95` = 33.6–39.9. At the top of that
-range a returned boss is still one hunt from zero, and at the bottom it leaves them on 6.4 and costs a
-second night — so containment is no longer free, but it is still the branch that costs the city nothing.
-The playtest contains 146 bosses across 96 seeds and 124 of them come back heavier.
+**A containment costs a second night, and that number was chosen rather than inherited.** The arithmetic is
+`BOSS_RETURN_INFLUENCE` at 45 against a hunt at `1.4 × 30 × 0.8–0.95` = 33.6–39.9. It used to sit at 40 —
+not because anybody picked it, but because correcting the knockback sign (see the note at the end of
+`TODO.md`) quietly moved the hunt down underneath it, leaving 40 exactly one night clear of zero at the top
+of the range. 45 is the smallest round figure that survives the worst case, so no single night can finish a
+returned boss whatever they are carrying, and it is still ten under the threshold. The playtest contains 122
+bosses across 96 seeds, every one of them back at 45, and asserts the ceiling directly.
 
-The other half is untouched: **the escalation still has no teeth past its cap** — powers three through
-eight do not change resistance at all, because `bossResistance` reads only the first power. TODO covers
-that.
+**The escalation has teeth now, and the teeth are in both multipliers.** `bossResistance` used to read only
+`villain.boss` — the *first* power — so a boss holding six took exactly the same effort to move as one
+holding two, and the list the player is shown as their escalation record was decoration. Each power after
+the first now takes a step out of both: **×0.9** on work mopped up at the scene, **×0.97** on a hunt. The
+asymmetry is the point, and it is not leniency. Tidying up after a boss was already nearly pointless, so a
+steep step there costs nothing real; by the end of the list it is not a slower route to the same place but no
+route at all, because the expected progress per night goes *positive* — every attempt at the scene hands back
+more influence than it takes off. The hunt step is gentle because hunting is the player's one tool against
+escalation and a boss has to stay a threat rather than become a wall. Walked across a real boss's whole list:
+
+```
+escapes        0      1      2      3      4      5      6
+mopping up  -4.0   -3.1   -2.3   -1.6   -0.9   -0.3   +0.2
+hunting     -12.8  -12.3  -11.8  -11.3  -10.8  -10.3   -9.9
+growth       +1     +2     +3     +3     +3     +3     +3
+```
+
+Both columns climb towards zero and only one of them crosses it, which is the mechanic restated as
+arithmetic. Growth is a rate and stays capped at +3; resistance is a multiplier, so the escalation does not
+stop at two containments.
 
 ### 10.4 What the playtest actually says
 
@@ -371,15 +391,15 @@ the city losing faith rather than on a villain taking it (§11.1):
 
 | Strategy | Mean run | Survived | Ended on trust |
 | --- | --- | --- | --- |
-| Never intervene, just patrol | 33 turns | 0/200 | 82 |
+| Never intervene, just patrol | 32 turns | 0/200 | 79 |
 | Attend a random incident | 42 turns | 0/200 | 61 |
-| **Focus on whoever is closest to winning** | **110 turns** | **2/200** | 93 |
+| **Focus on whoever is closest to winning** | **102 turns** | **1/200** | 97 |
 
 Two results worth keeping:
 
-1. **Focusing is the only route to survival, and it is not close.** 110 vs 42 is the whole design
+1. **Focusing is the only route to survival, and it is not close.** 102 vs 42 is the whole design
    functioning as intended.
-2. **Aimless intervention is barely better than doing nothing** (42 vs 33). Turning up and reacting is
+2. **Aimless intervention is barely better than doing nothing** (42 vs 32). Turning up and reacting is
    not a strategy here: you feed every villain you were not aiming at and you take the cascading
    damage on your own hero. The game punishes heroics that are not directed.
 
@@ -387,22 +407,36 @@ Two results worth keeping:
    it is measured as a turn count, so it holds wherever conquest is what ends the run. Where the trust
    clock is what ends it, merely turning up does buy time, because attending any incident at all stops
    it expiring and an expiring crime is what spends the city's patience: on a Difficult city, where
-   165/200 focused runs die on trust, aimless play runs 31 turns against 20 for doing nothing. What it
+   162/200 focused runs die on trust, aimless play runs 31 turns against 20 for doing nothing. What it
    never buys anywhere is a run it survives — 0/200 on all four cities, which is what the harness now
    asserts instead of a turn band, since ten turns means something very different on a run of 20 than on
    a run of 220.
 
-Focused play still loses 198/200, so the run is not a formality — but it is winnable by playing well,
+Focused play still loses 199/200, so the run is not a formality — but it is winnable by playing well,
 which is the correct shape. Note that focusing buys *time*, not safety: it is the only strategy that
-survives long enough to run into the trust floor, and 93 of its 198 losses are there rather than in a
+survives long enough to run into the trust floor, and 97 of its 199 losses are there rather than in a
 fight with a villain.
 
 **Bosses made the whole city harder, and closed the gap between the strategies.** Before them the same
-sweep read 54 / 59 / 142 with 6 survivors; now it reads 33 / 42 / 110 with 2. Every strategy got
+sweep read 54 / 59 / 142 with 6 survivors; now it reads 32 / 42 / 102 with 1. Every strategy got
 shorter, which is the point — neglect produces bosses and aimless play feeds them. But the spread
-between focused and aimless play narrowed from 83 turns to 68, when the intent was for it to widen: a
+between focused and aimless play narrowed from 83 turns to 60, when the intent was for it to widen: a
 boss is supposed to punish the player who ignores people *more* than the player who goes and gets them.
 As it stands the mechanic is roughly neutral on that gap. See the TODO.
+
+**Giving escalation teeth moved that gap the wrong way, and it is worth being precise about why.**
+The two halves of the boss fork are priced separately and they came apart cleanly. Making a returned boss
+escalate (40 → 45 return, and a step out of both resistance multipliers per escape) is worth about
+**nothing** to the sweep: with the escalation in place and the return figure left at 40, the Average city
+still reads 32 / 42 / **110**, and survival actually *rises* from 2/200 to 6/200, because a boss that gets
+harder to contain is a boss the harness ends up killing instead, and a kill is permanent. The eight-turn
+drop is the deliberate price of the containment branch, not a side effect of the escalation.
+
+The reason that widens nothing is structural: escalation lands on the player who *engages*, because the
+mop-up route is already a dead end and the hunt is the only one left. A boss who escapes six times is a
+boss the focused player has to spend six more nights on, so the mechanic punishes the attentive. Widening
+the gap needs something that hits the inattentive *specifically* — a cost that is charged for the
+neglect rather than for the fight — and that is a separate piece of work from this one.
 
 The harness's focused strategy hunts a boss rather than mopping up after it, because mopping up is
 precisely what the resistance numbers make pointless. That is the script correcting itself to model a
@@ -456,23 +490,27 @@ The same three strategies, 200 seeds each, on each city:
 
 | City | Never intervene | Attend randomly | Focus | Focus survived | Focus ended on trust |
 | --- | --- | --- | --- | --- | --- |
-| Easy | 51 | 59 | **220** | 19/200 | 1 |
-| Average | 33 | 42 | **110** | 2/200 | 93 |
-| Difficult | 20 | 31 | **42** | 0/200 | 165 |
-| Backbreaking | 8 | 8 | **11** | 0/200 | 194 |
+| Easy | 50 | 59 | **207** | 9/200 | 2 |
+| Average | 32 | 42 | **102** | 1/200 | 97 |
+| Difficult | 20 | 31 | **42** | 0/200 | 162 |
+| Backbreaking | 8 | 8 | **10** | 0/200 | 193 |
 
 Three things worth keeping:
 
-1. **The setting is genuinely a setting, and it does not break the game.** Focused play is 220 / 110 /
-   42 / 11 down the ladder, and focusing still beats both aimless play and doing nothing on *every*
+1. **The setting is genuinely a setting, and it does not break the game.** Focused play is 207 / 102 /
+   42 / 10 down the ladder, and focusing still beats both aimless play and doing nothing on *every*
    city. A knob that left the strategy ordering intact while moving run length by a factor of twenty is
    a difficulty setting; one that only reordered the strategies would have been a different game.
-2. **The two clocks swap ends.** An Easy run is almost never lost to lost confidence — only 1/200 end on
-   trust, so the floor barely fires. A Backbreaking run almost always is: 194/200, because a floor of
+2. **The two clocks swap ends.** An Easy run is almost never lost to lost confidence — only 2/200 end on
+   trust, so the floor barely fires. A Backbreaking run almost always is: 193/200, because a floor of
    −1 per guardian is three bad nights from the end. Difficulty does not just shorten runs, it changes
    *how they fail*, which is the more interesting thing for the player to be choosing between.
-3. **Easy is winnable and still not a formality.** 19/200 focused runs survive the 600-turn cap, against
-   2/200 on Average, and the harness is three lines of scripted heuristics rather than a player.
+3. **Easy is winnable and still not a formality.** 9/200 focused runs survive the 600-turn cap, against
+   1/200 on Average, and the harness is three lines of scripted heuristics rather than a player.
+
+Both of the winnable cities got harder when the containment branch was priced deliberately (§10.3) — Easy
+from 19 survivors to 9, Average from 2 to 1 — which is the cost of a fork that is actually a fork. It has
+not touched the ordering, and the ladder still spans a factor of twenty from end to end.
 
 Average is the identity: it is the run the rest of this document was measured against, it is what a run
 gets if the caller does not name a city, and it is the row the difficulty knob was fitted around.
@@ -516,7 +554,7 @@ never intervening) however you played — the bleed is driven by how much damage
 by how cleverly you took it. What skill buys is *time*: focused play meets the floor at turn 65 on
 average, aimless play at 21. So the floor does not add a skill test, it adds the sentence the whole
 design has been circling: **you can survive any single crisis, but you cannot keep doing this for two
-hundred nights.** Long runs now die of exhaustion rather than conquest, and 93/200 focused runs end that
+hundred nights.** Long runs now die of exhaustion rather than conquest, and 97/200 focused runs end that
 way.
 
 Two consequences worth keeping:

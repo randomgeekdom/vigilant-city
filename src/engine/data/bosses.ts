@@ -27,8 +27,9 @@ import type { VillainData } from '../core/types';
  * finds out that its guardians executed somebody it knew by name — the whole
  * roster pays for that, out of the only resource that ends runs. Contain them
  * and you have bought nothing: a boss does not stay contained, and they are
- * back before the night is out, one power heavier, growing faster than they did.
- * Permanent and expensive, or free and repeating.
+ * back before the night is out, one power heavier, growing faster than they did
+ * and measurably harder to shift for having been let go. Permanent and
+ * expensive, or cheaper and repeating.
  */
 
 export const BOSS_POWERS = [
@@ -52,7 +53,8 @@ export interface BossPowerDef {
    * Multiplier on knockback for work you mop up at the scene. This is the number
    * that matters most and it is deliberately severe: cleaning up after a boss
    * should barely touch them, so that going and getting them is the only answer
-   * rather than an optional extra.
+   * rather than an optional extra. Set by the power that grew them into a boss;
+   * every power after it stacks on top, one step per escape.
    */
   resistance: number;
   /**
@@ -60,7 +62,8 @@ export interface BossPowerDef {
    * closer to 1. A hunt costs a whole night and is the player's one real tool
    * against escalation, so it has to stay an answer. If resistance applied here
    * at full strength, a boss would be a wall rather than a threat and focusing
-   * would stop being the best strategy.
+   * would stop being the best strategy. Stacks as well, but far more gently,
+   * because it is the only lever the player has here.
    */
   huntResistance: number;
 }
@@ -125,21 +128,27 @@ export const MAX_ACTIVE_BOSSES = 2;
 
 /**
  * Containment hands back the threat but not the position: they return below the
- * threshold that made them a boss, so the transition does not re-trigger. What
- * does not survive is their work — a contained boss's incidents stay on the
- * board, because the city is still dealing with them.
+ * threshold that made them a boss, so the transition does not re-trigger, and
+ * above anything one night of hunting can take off them, so it always takes
+ * two. What does not survive is their work — a contained boss's incidents stay
+ * on the board, because the city is still dealing with them.
  *
- * Its one real worth is that it is the branch which does not cost the city's
- * standing, which is a genuine reason to take it when the roster cannot afford
- * the other one. It is not a way to win the same fight twice.
+ * The number is chosen against the strongest hunt in the game rather than left
+ * where the knockback fix happened to drop it. A hunt is
+ * `1.4 x 30 x 0.8–0.95` = 33.6–39.9, so 40 left a returned boss one hunt from
+ * zero at the top of that range and the non-lethal branch was free: two nights
+ * to finish a boss, no standing spent, and nothing to show for it but a longer
+ * power list. 45 is the smallest figure that survives the worst case — no single
+ * night can finish them, whatever they happen to be carrying — and it is still
+ * ten under the threshold, so they come back as the notable they were before
+ * they were a problem at all.
  *
- * Note the number against a hunt's knockback (1.4 x 30 x 0.8-0.95 = 33.6-39.9).
- * At the top of that range a returned boss is still one hunt from zero, and at the
- * bottom it leaves them on 6.4 and costs a second night, so containment is the
- * cheap branch rather than the free one it used to be. It is still a stall and not
- * a strategy: the turn you spent on it bought the roster nothing. TODO.
+ * Its one real worth is unchanged: it is the branch which does not cost the
+ * city's standing, which is a genuine reason to take it when the roster cannot
+ * afford the other one. What it costs now is nights. It is not a way to win the
+ * same fight twice.
  */
-export const BOSS_RETURN_INFLUENCE = 40;
+export const BOSS_RETURN_INFLUENCE = 45;
 
 /**
  * Chance a notable villain seeds their own work on a turn nobody attended to them.
@@ -165,32 +174,60 @@ export const BOSS_DEATH_TRUST_COST = 1;
 
 /**
  * What one failed containment buys them. Bounded, because a boss that can be
- * contained over and over must not grow without limit — past the cap the
- * containments stop making them stronger and only the power list records them.
+ * contained over and over must not grow without limit. The cap is on growth
+ * only: past it the containments still cost them resistance, which is a
+ * multiplier rather than a rate, so it can keep stepping without running away.
  */
 export const BOSS_ESCAPE_GROWTH = 1;
 export const MAX_ESCAPE_GROWTH = 2;
+
+/**
+ * What one failed containment costs them on knockback, by route. Steep at the
+ * scene and gentle in a hunt, and the difference between the two numbers is the
+ * whole point of them: by the time a boss has worked through the list, tidying
+ * up after them is not a slower route to the same place, it is no route at all,
+ * so the one thing that keeps working is the one the player already has to pay a
+ * full night for. Gentleness on the hunt side is not leniency, it is the reason
+ * a boss is a threat rather than a wall.
+ */
+export const BOSS_RESISTANCE_STEP = 0.9;
+export const BOSS_HUNT_RESISTANCE_STEP = 0.97;
 
 export function activeBosses(villains: readonly VillainData[]): VillainData[] {
   return villains.filter((v) => v.boss !== null && v.status === 'active');
 }
 
+/**
+ * How many times this one has got away: one power to begin with and one for
+ * being a boss, and every power after those is one it took off a containment.
+ * Growth and resistance both read this, so the two halves of "harder every time
+ * it escapes" cannot drift apart.
+ */
+export function bossEscapes(villain: VillainData): number {
+  return Math.max(0, villain.powers.length - 2);
+}
 
 /** Extra influence per unattended turn. Ordinary villains consolidate at the run's diverted growth alone. */
 export function bossGrowth(villain: VillainData): number {
   if (villain.boss === null) return 0;
   const def = BOSS_POWER_DEFS[villain.boss];
-  // One power to begin with and one for being a boss; every power after those is
-  // one they took off a containment, and the powers array is the only record.
-  const escapes = Math.min(MAX_ESCAPE_GROWTH, Math.max(0, villain.powers.length - 2));
-  return def.growth + escapes * BOSS_ESCAPE_GROWTH;
+  return def.growth + Math.min(MAX_ESCAPE_GROWTH, bossEscapes(villain)) * BOSS_ESCAPE_GROWTH;
 }
 
-/** Multiplier on knockback. 1 for an ordinary villain, whatever route you take. */
+/**
+ * Multiplier on knockback. 1 for an ordinary villain, whatever route you take.
+ *
+ * Reads the whole power list, not just the one that grew them into a boss. A
+ * returned boss has to be measurably harder to move than the one that got away
+ * last time, or the power list is decoration and so is the escalation record the
+ * player is shown. The first power sets what they are and each one after it
+ * takes a step out of both multipliers.
+ */
 export function bossResistance(villain: VillainData, isHunt: boolean): number {
   if (villain.boss === null) return 1;
   const def = BOSS_POWER_DEFS[villain.boss];
-  return isHunt ? def.huntResistance : def.resistance;
+  const step = isHunt ? BOSS_HUNT_RESISTANCE_STEP : BOSS_RESISTANCE_STEP;
+  return (isHunt ? def.huntResistance : def.resistance) * step ** bossEscapes(villain);
 }
 
 /** How often they seed work of their own, given they are past Nuisance. */

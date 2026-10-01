@@ -12,10 +12,15 @@ import { APPROACHES, type Approach } from './data/approaches';
 import {
   activeBosses,
   BOSS_DEATH_TRUST_COST,
+  BOSS_ESCAPE_GROWTH,
   BOSS_POWER_DEFS,
+  BOSS_POWERS,
   BOSS_RETURN_INFLUENCE,
   BOSS_THRESHOLD,
+  bossGrowth,
+  bossResistance,
   MAX_ACTIVE_BOSSES,
+  MAX_ESCAPE_GROWTH,
 } from './data/bosses';
 import { POWER_SETS, type PowerSet } from './data/powersets';
 import { POWER_ORIGINS, type PowerOrigin } from './data/origins';
@@ -359,16 +364,22 @@ console.log('villains grow into bosses');
   // all, and the same night spent hunting them is several times better.
   if (firstBoss) {
     const boss = firstBoss;
-    const plain = Math.abs(knockback(boss.backedBy));
     const def = BOSS_POWER_DEFS[boss.boss!];
-    const mopped = plain * def.resistance;
-    const hunted = plain * HUNT_MULTIPLIER * def.huntResistance;
+    const plain = Math.abs(knockback(boss.backedBy));
+    // Read off the engine rather than off the table. This block used to rebuild
+    // the multiplier by hand from `def.resistance`, which is the same mistake the
+    // knockback sign made: two copies of one rule that agree with each other and
+    // can disagree with the game. `bossResistance` now steps per escape, so a
+    // hand-rolled copy of the base number would quietly stop describing a boss
+    // that has been let go more than once.
+    const mopped = plain * bossResistance(boss, false);
+    const hunted = plain * HUNT_MULTIPLIER * bossResistance(boss, true);
     const half = 0.5;
     const moppedExpected = half * -mopped + half * INFLUENCE_ON_FAILURE;
     const huntedExpected = half * -hunted + half * INFLUENCE_ON_FAILURE;
     // Printed rather than only asserted: DESIGN 10.3 quotes these two as the
-    // arithmetic behind the fork, and a worked example written out by hand is
-    // the first thing to go stale when a number moves.
+    // arithmetic behind the fork, and a worked example written out by hand is the
+    // first thing to go stale when a number moves.
     console.log(
       `  info ${boss.alias} (${def.tell})` +
         ` mopping up ${moppedExpected.toFixed(1)}/attempt from ${mopped.toFixed(1)},` +
@@ -388,6 +399,123 @@ console.log('villains grow into bosses');
   }
 }
 
+console.log('a boss gets harder every time it gets away');
+{
+  // The escalation record the player is shown has to mean something, so it is
+  // measured by walking a real boss up its own power list rather than by
+  // asserting that the list exists. It used to be decoration: `bossResistance`
+  // read only the power that grew them into a boss, so a boss holding six took
+  // exactly the same effort to move as one holding two, and the growth the list
+  // was bolted onto capped out at two escapes and stayed there.
+  const { session } = GameSession.newGame({
+    realName: 'Escalation Test',
+    alias: 'Escalation Test',
+    powerSet: 'Telekinesis',
+    origin: 'alien',
+    seed: 8123 * 2,
+  });
+  for (let turn = 0; turn < 300 && !session.isOver && !session.villains.some((v) => v.boss !== null); turn += 1) {
+    session.patrol();
+  }
+  const found = session.villains.find((v) => v.boss !== null);
+  if (!found) {
+    check('a boss to escalate', false, 'no boss in 300 neglected turns');
+  } else {
+    // The powers array is the only record of how often they got away, so the
+    // walk is built by handing them every power they do not already hold — the
+    // same set `availableBossPowers` draws from and the same one the harness
+    // asserts is never repeated.
+    const walked: VillainData[] = [{ ...found, powers: found.powers.map((p) => ({ ...p })) }];
+    for (const power of BOSS_POWERS) {
+      const previous = walked[walked.length - 1]!;
+      if (previous.powers.some((p) => p.powerSet === power)) continue;
+      walked.push({ ...found, powers: [...previous.powers, { powerSet: power, origin: 'genetic' }] });
+    }
+    check(
+      'a boss can work through every power on the list',
+      walked.length === BOSS_POWERS.length,
+      `walked ${walked.length - 1} escapes over ${walked.length} states`,
+    );
+
+    const plain = Math.abs(knockback(found.backedBy));
+    const half = 0.5;
+    // Expected progress per attempt, the same measure the block above uses,
+    // because a resolution that misses hands the target influence straight back.
+    // What is measured is a run of nights, not a single good one.
+    const perAttempt = (villain: VillainData, isHunt: boolean): number => {
+      const drop = plain * (isHunt ? HUNT_MULTIPLIER : 1) * bossResistance(villain, isHunt);
+      return half * -drop + half * INFLUENCE_ON_FAILURE;
+    };
+    const mopped = walked.map((v) => perAttempt(v, false));
+    const hunted = walked.map((v) => perAttempt(v, true));
+    const growth = walked.map((v) => bossGrowth(v));
+
+    console.log(
+      `  info ${found.alias} across ${walked.length - 1} escapes: ` +
+        walked
+          .map((_, i) => `${i}: mop ${mopped[i]!.toFixed(1)} hunt ${hunted[i]!.toFixed(1)} grow +${growth[i]}`)
+          .join(' | '),
+    );
+
+    // Progress per attempt is a negative number, so "worse" is "closer to zero":
+    // each escape has to push the figure up, not down. A boss that got away six
+    // times is the row on the right of that run.
+    const worsens = (xs: number[]) => xs.every((x, i) => i === 0 || x > xs[i - 1]!);
+    check('mopping up after a boss gets worse every escape', worsens(mopped), mopped.map((x) => x.toFixed(1)).join(' > '));
+    check('hunting a boss gets worse every escape too', worsens(hunted), hunted.map((x) => x.toFixed(1)).join(' > '));
+    check(
+      'by the end of the list, mopping up after a boss is not a route at all',
+      mopped[mopped.length - 1]! >= 0,
+      `${mopped[mopped.length - 1]!.toFixed(1)} per attempt, a miss still costs ${INFLUENCE_ON_FAILURE}`,
+    );
+    check(
+      'hunting is still the answer on a boss who has been let go six times',
+      hunted[hunted.length - 1]! < 0,
+      `${hunted[hunted.length - 1]!.toFixed(1)} per attempt`,
+    );
+    check(
+      'hunting beats mopping up at every step of the list',
+      hunted.every((h, i) => h < mopped[i]!),
+      `${hunted[hunted.length - 1]!.toFixed(1)} vs ${mopped[mopped.length - 1]!.toFixed(1)} at full escalation`,
+    );
+    // Growth is a rate and the cap is on purpose: a boss that can be contained
+    // for ever must not accelerate for ever either. Resistance is a multiplier
+    // and keeps stepping past the cap, so the escalation does not stop at two.
+    check(
+      'the growth bonus is still bounded where it always was',
+      growth.every((g) => g <= BOSS_POWER_DEFS[found.boss!].growth + MAX_ESCAPE_GROWTH * BOSS_ESCAPE_GROWTH),
+      growth.join(' < '),
+    );
+  }
+}
+
+console.log('a returned boss is never one night from zero');
+{
+  // The containment branch cost what it cost by accident: `BOSS_RETURN_INFLUENCE`
+  // sat at 40 because a knockback correction moved the hunt to 33.6-39.9 rather
+  // than because anybody picked it, and 40 left a returned boss one hunt from
+  // zero at the top of that range. The number is now chosen against the strongest
+  // hunt in the game, and the choice is asserted so it cannot drift back into
+  // being a coincidence. The ceiling is built off a *backed* villain, because
+  // that is the only kind in a run — 35 is the base the knockback rule is written
+  // against and a figure the player never meets, so measuring against it would
+  // clear a number the game does not actually use.
+  const strongestHunt =
+    HUNT_MULTIPLIER *
+    Math.abs(knockback('ascendants')) *
+    Math.max(...BOSS_POWERS.map((p) => BOSS_POWER_DEFS[p].huntResistance));
+  check(
+    'a containment always costs a second night, whatever they are carrying',
+    BOSS_RETURN_INFLUENCE > strongestHunt,
+    `returns at ${BOSS_RETURN_INFLUENCE}, the best hunt in the game is ${strongestHunt.toFixed(1)}`,
+  );
+  check(
+    'and they still come back below the threshold that made them a boss',
+    BOSS_RETURN_INFLUENCE < BOSS_THRESHOLD,
+    `${BOSS_RETURN_INFLUENCE} against ${BOSS_THRESHOLD}`,
+  );
+}
+
 console.log('a boss at zero is a fork');
 {
   // Both branches have to be reachable and they have to cost different things.
@@ -400,6 +528,9 @@ console.log('a boss at zero is a fork');
   const nonLethal: [Approach, Approach] = ['diplomatic', 'stealthy'];
   let containments = 0;
   let returned = 0;
+  let returnedAt = 0;
+  let escalated = 0;
+  const firstResistance = new Map<string, number>();
   let workHeld = 0;
   let workBefore = 0;
   let workAfter = 0;
@@ -425,6 +556,12 @@ console.log('a boss at zero is a fork');
       const work = session.openIncidents.filter((i) => i.villainId === boss.id);
       const before = work.length;
       const powersBefore = boss.powers.length;
+      const resistanceBefore = bossResistance(boss, true);
+      // First time this particular one is met, so the comparison below is their
+      // resistance against their own starting point rather than against whoever
+      // happened to hold the title on the previous turn.
+      const firstSight = firstResistance.get(boss.id);
+      if (firstSight === undefined) firstResistance.set(boss.id, resistanceBefore);
       const trustBefore = session.trust;
       const roster = session.allHeroes.length;
       let report;
@@ -438,6 +575,10 @@ console.log('a boss at zero is a fork');
       if (report.villain?.outcome !== 'escaped') continue;
       containments += 1;
       if (boss.powers.length > powersBefore) returned += 1;
+      // The return is not a derived report: the session hands them back inside
+      // the same resolution, so this is the number the board is actually on.
+      if (boss.influence === BOSS_RETURN_INFLUENCE) returnedAt += 1;
+      if (firstSight !== undefined && resistanceBefore < firstSight) escalated += 1;
       const held = new Set(boss.powers.map((p) => p.powerSet));
       if (held.size !== boss.powers.length) duplicated += 1;
       if (before >= 2) {
@@ -459,6 +600,23 @@ console.log('a boss at zero is a fork');
 
   check('a boss can be contained without being killed', containments > 0, `containments=${containments}`);
   check('a contained boss comes back with another power', containments > 0 && returned > 0, `${returned}/${containments}`);
+  // Both halves of the escalation, observed rather than inferred. The pure
+  // derivations are checked above; this is the same claim made about a real run,
+  // so a boss that comes back at the wrong number or at the same difficulty as
+  // last time fails here instead of quietly making the other checks true.
+  // Every containment hands them back — including the ones where they have
+  // worked through the whole list and there is no power left to give — so this
+  // is counted against the containments rather than against the power gains.
+  check(
+    'every containment hands the boss back at the number the design picked',
+    containments > 0 && returnedAt === containments,
+    `${returnedAt}/${containments} came back at ${BOSS_RETURN_INFLUENCE}`,
+  );
+  check(
+    'a contained boss comes back harder to move than they went',
+    containments > 0 && escalated > 0,
+    `${escalated} containments of a boss already measured, out of ${containments}`,
+  );
   // The powers list is the only record of how many times a boss got away, so it
   // has to stay a set. A repeat entry would overstate their escalation forever.
   check('no boss ever holds the same power twice', duplicated === 0, `${duplicated} with a duplicate`);
