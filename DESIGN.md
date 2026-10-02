@@ -308,7 +308,7 @@ for their two numbers, and it is what the player is reading when they work out w
 | Unattended growth | +6 | +7, and +1 more for every failed containment |
 | Knockback, work mopped up at the scene | −30 | **×0.5 to ×0.65** |
 | Knockback, hunted directly | −30 × 1.4 | **×0.8 to ×0.95 of that** |
-| Seeds their own work | 30%/turn | 40%/turn |
+| Seeds their own work | 30%/turn | 40%/turn, **rising to 80% the longer they are left** |
 
 Growth in that table is the Average city's price of inattention (§10.5) plus the boss's own; a harder
 city raises the first term and leaves the second alone.
@@ -330,6 +330,49 @@ hunts as well would make a boss a wall rather than a threat, and the sweep showe
 play collapsed from 142 turns to 76 and stopped being survivable at all.
 
 **At most two at once.** A run should have faces in it, not a bestiary.
+
+#### A boss left alone is a bill for the attention you did not spend
+
+Every other number in that table is charged to the player who *turns up*. Mopping up after a boss barely
+moves them, hunting them costs nights, killing them costs the whole roster standing and containing them
+makes them worse — all of it lands on whoever engages, because that is the only thing the attentive player
+ever does with a boss. Which means the mechanic could not punish neglect at all: an aimless player pays
+nothing for a boss, because they never touch one.
+
+`bossBill` is the other axis. A boss who is never attended stops being a police problem and becomes a
+**workload**, and every fifteen points of influence past the threshold they were given adds a unit of bill
+to a ceiling of two. Each unit adds 20 points to how often they seed work of their own, so a boss at the
+ceiling spreads it at 80% a turn against an ordinary notable's 30%.
+
+```
+influence     55      70      85     100
+bill units     0       1       2       2
+seeding      40%     60%     80%    80%
+```
+
+**It is a derivation, not a counter.** Nothing is stored, no turn is counted, and no state is threaded
+through the turn: the bill is read off influence past the threshold, influence only ever rises through
+diversion, and a knockback is applied *before* the board is ticked — so attention is what lowers it, and
+hunting a boss once takes their bill back to whatever it was. A run that never goes and gets one sees it
+climb; a run that hunts one never lets it leave zero. The playtest asserts both halves, because "it grows
+with neglect" on its own would also be true of a mechanic that punished whoever happened to be fighting.
+
+**Paid in work rather than in standing, and that routing is the point.** The obvious channel for a bill is
+the trust floor, and it was measured: a direct per-hero trust charge produces about six times the raw units
+between the strategies and moves the strategy gap by *nothing*, while flipping most aimless runs from being
+conquered to being stood down by the city. It collapses the two clocks §11.1 rests on for no balance gain.
+Seeding more work is the one thing a neglected boss can do an ordinary villain cannot, it costs the player
+nothing directly, and it lands on the existing trust clock through work nobody got to — an extra crime
+expires into the same bleed as any other, so it cannot become a second floor.
+
+It also cuts both ways honestly, which is why it widens the gap instead of ending runs everywhere: **more
+work on the board is more work a focused player can get to.** Aiming at the worst villain now finds their
+crime on the board more often, which is exactly the advantage the design is about.
+
+**The effect is real and small.** The Average city reads 31 / 43 / **105** against 32 / 42 / **102** before,
+so the focused-to-aimless gap goes 60 turns to 62 — about a tenth of the 21 turns it would take to restore
+the pre-boss figure, and every other candidate measured moved it less. What the number does *not* do is
+change the story, and the next section is why that story was misread in the first place.
 
 #### The end is a fork
 
@@ -391,15 +434,15 @@ the city losing faith rather than on a villain taking it (§11.1):
 
 | Strategy | Mean run | Survived | Ended on trust |
 | --- | --- | --- | --- |
-| Never intervene, just patrol | 32 turns | 0/200 | 79 |
-| Attend a random incident | 42 turns | 0/200 | 61 |
-| **Focus on whoever is closest to winning** | **102 turns** | **1/200** | 97 |
+| Never intervene, just patrol | 31 turns | 0/200 | 80 |
+| Attend a random incident | 43 turns | 0/200 | 59 |
+| **Focus on whoever is closest to winning** | **105 turns** | **1/200** | 101 |
 
 Two results worth keeping:
 
-1. **Focusing is the only route to survival, and it is not close.** 102 vs 42 is the whole design
+1. **Focusing is the only route to survival, and it is not close.** 105 vs 43 is the whole design
    functioning as intended.
-2. **Aimless intervention is barely better than doing nothing** (42 vs 32). Turning up and reacting is
+2. **Aimless intervention is barely better than doing nothing** (43 vs 31). Turning up and reacting is
    not a strategy here: you feed every villain you were not aiming at and you take the cascading
    damage on your own hero. The game punishes heroics that are not directed.
 
@@ -407,22 +450,41 @@ Two results worth keeping:
    it is measured as a turn count, so it holds wherever conquest is what ends the run. Where the trust
    clock is what ends it, merely turning up does buy time, because attending any incident at all stops
    it expiring and an expiring crime is what spends the city's patience: on a Difficult city, where
-   162/200 focused runs die on trust, aimless play runs 31 turns against 20 for doing nothing. What it
+   163/200 focused runs die on trust, aimless play runs 30 turns against 20 for doing nothing. What it
    never buys anywhere is a run it survives — 0/200 on all four cities, which is what the harness now
    asserts instead of a turn band, since ten turns means something very different on a run of 20 than on
    a run of 220.
 
+   The band that used to stand in for this was a fixed +10 turns, and it is gone. It sat *exactly* on its
+   own boundary (42 against 32) and it was never a claim about anything: the harness's own note on it
+   said ten turns means one thing on a run of 220 and another on a run of 19. What replaces it is the
+   claim in its own units — focusing buys `focus − neglect` turns over inaction, and turning up without
+   a target may capture at most a third of that difference.
+
 Focused play still loses 199/200, so the run is not a formality — but it is winnable by playing well,
 which is the correct shape. Note that focusing buys *time*, not safety: it is the only strategy that
-survives long enough to run into the trust floor, and 97 of its 199 losses are there rather than in a
+survives long enough to run into the trust floor, and 101 of its 199 losses are there rather than in a
 fight with a villain.
 
-**Bosses made the whole city harder, and closed the gap between the strategies.** Before them the same
-sweep read 54 / 59 / 142 with 6 survivors; now it reads 32 / 42 / 102 with 1. Every strategy got
-shorter, which is the point — neglect produces bosses and aimless play feeds them. But the spread
-between focused and aimless play narrowed from 83 turns to 60, when the intent was for it to widen: a
-boss is supposed to punish the player who ignores people *more* than the player who goes and gets them.
-As it stands the mechanic is roughly neutral on that gap. See the TODO.
+**Bosses made the whole city harder. They did not close the gap between the strategies, and the spread in
+turns is what made it look like they did.** Before bosses the same sweep read 54 / 59 / 142; after them,
+32 / 42 / 102. Every strategy got about 28% shorter, which is the point — neglect produces bosses and
+aimless play feeds them. What the gap does *not* do is move, and the way to see that is to stop counting
+turns:
+
+| | Never intervene | Attend randomly | Focus | Focus ÷ aimless | Focus ÷ never |
+| --- | --- | --- | --- | --- | --- |
+| Before bosses | 54 | 59 | 142 | **2.41×** | 2.63× |
+| After bosses | 32 | 42 | 102 | **2.43×** | 3.19× |
+| After the bill (§10.3) | 31 | 43 | 105 | **2.44×** | 3.39× |
+
+The turn-denominated spread fell from 83 to 60 to 62, and the ratio moved from 2.41× to 2.43× to 2.44×.
+A run that is a third shorter has a third narrower spread, so "the spread narrowed" was arithmetic about
+run length rather than evidence about the mechanic — and focus's advantage over doing *nothing* actually
+widened throughout, from 2.63× to 3.39×. Read that way the mechanic did what it was built to do: punish
+the player who ignores people more than the player who goes and gets them. The bill in §10.3 pushes the
+same way for a tenth of a turn; the honest conclusion is that this gap is dominated by whether villains
+leave the board at all, and the strategies differ there by 187 boss kills to 4.
 
 **Giving escalation teeth moved that gap the wrong way, and it is worth being precise about why.**
 The two halves of the boss fork are priced separately and they came apart cleanly. Making a returned boss
@@ -434,9 +496,20 @@ drop is the deliberate price of the containment branch, not a side effect of the
 
 The reason that widens nothing is structural: escalation lands on the player who *engages*, because the
 mop-up route is already a dead end and the hunt is the only one left. A boss who escapes six times is a
-boss the focused player has to spend six more nights on, so the mechanic punishes the attentive. Widening
-the gap needs something that hits the inattentive *specifically* — a cost that is charged for the
-neglect rather than for the fight — and that is a separate piece of work from this one.
+boss the focused player has to spend six more nights on, so the mechanic punishes the attentive. That is
+what the bill in §10.3 exists to answer, and it is deliberately the opposite construction: influence past
+the threshold, which attention is what lowers.
+
+Two other routes to the same gap were measured and are ruled out, so that nobody re-derives them:
+
+- **A cheaper hunt against bosses** cannot be chosen, only stumbled on. Because mopping up is already at
+  zero progress by full escalation, a cheaper hunt pushes bosses into the *containment* branch rather than
+  past it — and containment is a stall. Focus reads 106 / 93 / 95 / 99 turns at 90% / 80% / 70% / 60% of
+  today's hunt resistance: not a gradient, a spike.
+- **Making the execution itself cheap** is the one number that materially moves focused play, and it moves
+  the wrong way. `BOSS_DEATH_TRUST_COST` of 0 buys focused play ten turns (112) and one extra survivor;
+  3 costs it twenty-eight (74). That is the fork's price doing its job, and it is charged to the player
+  who wins, so it is not the lever this was looking for either.
 
 The harness's focused strategy hunts a boss rather than mopping up after it, because mopping up is
 precisely what the resistance numbers make pointless. That is the script correcting itself to model a
@@ -490,27 +563,28 @@ The same three strategies, 200 seeds each, on each city:
 
 | City | Never intervene | Attend randomly | Focus | Focus survived | Focus ended on trust |
 | --- | --- | --- | --- | --- | --- |
-| Easy | 50 | 59 | **207** | 9/200 | 2 |
-| Average | 32 | 42 | **102** | 1/200 | 97 |
-| Difficult | 20 | 31 | **42** | 0/200 | 162 |
-| Backbreaking | 8 | 8 | **10** | 0/200 | 193 |
+| Easy | 50 | 59 | **215** | 13/200 | 3 |
+| Average | 31 | 43 | **105** | 1/200 | 101 |
+| Difficult | 20 | 30 | **44** | 0/200 | 163 |
+| Backbreaking | 8 | 8 | **10** | 0/200 | 194 |
 
 Three things worth keeping:
 
-1. **The setting is genuinely a setting, and it does not break the game.** Focused play is 207 / 102 /
-   42 / 10 down the ladder, and focusing still beats both aimless play and doing nothing on *every*
+1. **The setting is genuinely a setting, and it does not break the game.** Focused play is 215 / 105 /
+   44 / 10 down the ladder, and focusing still beats both aimless play and doing nothing on *every*
    city. A knob that left the strategy ordering intact while moving run length by a factor of twenty is
    a difficulty setting; one that only reordered the strategies would have been a different game.
-2. **The two clocks swap ends.** An Easy run is almost never lost to lost confidence — only 2/200 end on
-   trust, so the floor barely fires. A Backbreaking run almost always is: 193/200, because a floor of
+2. **The two clocks swap ends.** An Easy run is almost never lost to lost confidence — only 3/200 end on
+   trust, so the floor barely fires. A Backbreaking run almost always is: 194/200, because a floor of
    −1 per guardian is three bad nights from the end. Difficulty does not just shorten runs, it changes
    *how they fail*, which is the more interesting thing for the player to be choosing between.
-3. **Easy is winnable and still not a formality.** 9/200 focused runs survive the 600-turn cap, against
+3. **Easy is winnable and still not a formality.** 13/200 focused runs survive the 600-turn cap, against
    1/200 on Average, and the harness is three lines of scripted heuristics rather than a player.
 
-Both of the winnable cities got harder when the containment branch was priced deliberately (§10.3) — Easy
-from 19 survivors to 9, Average from 2 to 1 — which is the cost of a fork that is actually a fork. It has
-not touched the ordering, and the ladder still spans a factor of twenty from end to end.
+Easy has been winnable at a price twice now. Pricing the containment branch deliberately (§10.3) took it
+from 19 survivors to 9, and the bill for leaving a boss alone (§10.3) has put four of them back — which
+is the shape you want from a mechanic that punishes neglect, since the attentive player is the one who
+pays it. The ordering has not moved and the ladder still spans a factor of twenty from end to end.
 
 Average is the identity: it is the run the rest of this document was measured against, it is what a run
 gets if the caller does not name a city, and it is the row the difficulty knob was fitted around.
@@ -549,12 +623,12 @@ difficulty setting rather than being global — see §10.5 for the table, includ
 *shallower* allowance and not a deeper one.
 
 What the playtest found is that this is a **patience clock, not a skill clock**, and that is the more
-interesting result. Trust at the end of a run sits in a narrow band (median −9 focused, −5 aimless, −8
-never intervening) however you played — the bleed is driven by how much damage the city has taken, not
-by how cleverly you took it. What skill buys is *time*: focused play meets the floor at turn 65 on
-average, aimless play at 21. So the floor does not add a skill test, it adds the sentence the whole
+interesting result. Trust at the end of a run sits in a narrow band (median −10 focused, −4 aimless, −8
+never intervening) however you played — the bleed is driven by how much damage the city has taken, not by
+how cleverly you took it. What skill buys is *time*: focused play meets the floor at turn 78 on average,
+aimless play at 21. So the floor does not add a skill test, it adds the sentence the whole
 design has been circling: **you can survive any single crisis, but you cannot keep doing this for two
-hundred nights.** Long runs now die of exhaustion rather than conquest, and 97/200 focused runs end that
+hundred nights.** Long runs now die of exhaustion rather than conquest, and 101/200 focused runs end that
 way.
 
 Two consequences worth keeping:

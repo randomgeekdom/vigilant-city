@@ -30,6 +30,11 @@ import type { VillainData } from '../core/types';
  * back before the night is out, one power heavier, growing faster than they did
  * and measurably harder to shift for having been let go. Permanent and
  * expensive, or cheaper and repeating.
+ *
+ * The other half of that sentence is `bossBill`: a boss who is never attended
+ * stops being a police problem and becomes a workload, and the longer they are
+ * left the louder it gets. Everything below that punishes the player who turns
+ * up; that one punishes the player who does not.
  */
 
 export const BOSS_POWERS = [
@@ -165,6 +170,24 @@ export const ORDINARY_SEED_CHANCE = 0.3;
 export const BOSS_SEED_CHANCE = 0.4;
 
 /**
+ * The bill for leaving a boss alone, and what it is paid in.
+ *
+ * Influence past the threshold buys a unit every `BOSS_BILL_STEP` points, to a
+ * ceiling of `MAX_BILL_UNITS` — capped for the same reason `MAX_ESCAPE_GROWTH`
+ * is: a boss nobody attends must not accelerate for ever either. Fifteen is the
+ * span from a boss to a Severe one, so the units land where the tiers do rather
+ * than at arbitrary points inside a band.
+ *
+ * Each unit then adds `BILL_SEEDING_STEP` to how often they seed their own work,
+ * so a boss at the ceiling spreads it at 0.8 against an ordinary notable's 0.3.
+ * A fifth of the base per unit is what it takes to double a neglected boss's
+ * output without making one the loudest thing on the board.
+ */
+export const BOSS_BILL_STEP = 15;
+export const MAX_BILL_UNITS = 2;
+export const BILL_SEEDING_STEP = 0.2;
+
+/**
  * Executing somebody the city knew by name costs the whole roster standing, per
  * hero. It has to be a price rather than a formality, and it has to stay well
  * inside one night's worth of the other drain — three points of debt per hero is
@@ -230,9 +253,53 @@ export function bossResistance(villain: VillainData, isHunt: boolean): number {
   return (isHunt ? def.huntResistance : def.resistance) * step ** bossEscapes(villain);
 }
 
-/** How often they seed work of their own, given they are past Nuisance. */
+/**
+ * What a boss has run up by being left alone, in units.
+ *
+ * The escalation above is charged to the player who *engages* a boss: it costs
+ * the next hunt, and the next hunt is the player's own one tool against a boss.
+ * It cannot punish neglect, because the attentive player is the one who pays it.
+ * This is the other axis, and it is the one the design's own sentence asks for —
+ * a boss is a bill for attention you did not spend.
+ *
+ * Influence past the threshold is the record of that neglect, so it is what the
+ * bill reads. Nothing is stored and no turn has to be counted: a villain only
+ * ever goes up by diversion, and an engaged boss is knocked back before the board
+ * is ticked, so the bill falls the moment somebody goes and gets them. A run
+ * that stops attending a boss sees the bill rise; a run that hunts one never
+ * lets it leave zero.
+ *
+ * Zero at the threshold, which is deliberate. The city has just noticed this
+ * person; nothing has been let run yet, and the bill is for what comes after.
+ */
+export function bossBill(villain: VillainData): number {
+  if (villain.boss === null) return 0;
+  const past = villain.influence - BOSS_THRESHOLD;
+  if (past <= 0) return 0;
+  return Math.min(MAX_BILL_UNITS, Math.floor(past / BOSS_BILL_STEP));
+}
+
+/**
+ * How often they seed work of their own, given they are past Nuisance.
+ *
+ * The bill is paid in work rather than in standing, and that routing is the
+ * point rather than a convenience. Seeding more is the one thing a neglected boss
+ * can do that an ordinary villain cannot, it costs the player nothing directly,
+ * and it lands on the existing trust clock through work nobody got to — an extra
+ * crime expires into the same bleed as any other, so it cannot become a second
+ * floor. It also cuts both ways honestly: more work on the board is more work a
+ * focused player can get to, so the charge widens the gap between the strategies
+ * instead of ending runs everywhere at once.
+ *
+ * Measured against the alternative — a direct trust charge for the same bill —
+ * the direct charge buys six times the raw units and moves the strategy gap by
+ * nothing, while flipping most aimless runs from conquest to trust. Work is the
+ * channel that pays for neglect without collapsing the two clocks §11.1 rests
+ * on.
+ */
 export function bossSeedChance(villain: VillainData): number {
-  return villain.boss === null ? ORDINARY_SEED_CHANCE : BOSS_SEED_CHANCE;
+  if (villain.boss === null) return ORDINARY_SEED_CHANCE;
+  return BOSS_SEED_CHANCE + bossBill(villain) * BILL_SEEDING_STEP;
 }
 
 /**

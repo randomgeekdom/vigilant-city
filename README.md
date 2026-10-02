@@ -62,9 +62,9 @@ inattention and how much debt the city will carry — and nothing else:
 
 | | Unattended growth | Trust floor per guardian | Focus strategy, mean run |
 | --- | --- | --- | --- |
-| Easy | +4 | −6 | 207 turns, 9/200 survived |
-| Average | +5 | −3 | 102 turns, 1/200 survived |
-| Difficult | +6 | −2 | 42 turns, 0/200 survived |
+| Easy | +4 | −6 | 215 turns, 13/200 survived |
+| Average | +5 | −3 | 105 turns, 1/200 survived |
+| Difficult | +6 | −2 | 44 turns, 0/200 survived |
 | Backbreaking | +8 | −1 | 10 turns, 0/200 survived |
 
 A harder city is **not** a city that decays — there is still no tide, and every point a villain gains is
@@ -90,6 +90,13 @@ scene (×0.9 per escape), gently in a hunt (×0.97) — so the power list the pl
 escalation record is a real number. By the sixth escape, cleaning up after them is not a slower route to
 the same place, it is no route at all, and hunting is what is left.
 
+And all of that is charged to whoever goes and gets them, which is the only thing the attentive player
+ever does with a boss — so a boss left alone has to cost you something on its own account. Every 15
+influence past the 55 they were given adds a unit of bill, up to two, and each unit is 20 points on how
+often they seed work of their own: **40% a turn at the threshold, 80% at the ceiling.** Nothing counts
+that. It is read off their influence, and a hunt takes it back down, so the bill is the bill for having
+left them, not a fee for fighting them.
+
 When one reaches zero you are choosing between the two available answers, and both cost something:
 
 - **Kill them.** Permanent, and the city knew that name — every hero on the roster takes a point of
@@ -102,8 +109,8 @@ When one reaches zero you are choosing between the two available answers, and bo
 Permanent and expensive, or cheaper and repeating.
 
 The playtest measures three strategies over 200 seeds on the Average city: never intervening averages
-32 turns, attending random incidents averages 42, and **focusing on whoever is closest to winning
-averages 102 with 1 survivor**. Aimless heroics is barely better than doing nothing.
+31 turns, attending random incidents averages 43, and **focusing on whoever is closest to winning
+averages 105 with 1 survivor**. Aimless heroics is barely better than doing nothing.
 
 ## Systems
 

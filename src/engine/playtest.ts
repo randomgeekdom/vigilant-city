@@ -11,16 +11,22 @@ import { SNAPSHOT_VERSION, type CitySnapshot, type HeroData, type VillainData } 
 import { APPROACHES, type Approach } from './data/approaches';
 import {
   activeBosses,
+  BILL_SEEDING_STEP,
   BOSS_DEATH_TRUST_COST,
   BOSS_ESCAPE_GROWTH,
   BOSS_POWER_DEFS,
   BOSS_POWERS,
   BOSS_RETURN_INFLUENCE,
+  BOSS_SEED_CHANCE,
   BOSS_THRESHOLD,
+  bossBill,
   bossGrowth,
   bossResistance,
+  bossSeedChance,
   MAX_ACTIVE_BOSSES,
+  MAX_BILL_UNITS,
   MAX_ESCAPE_GROWTH,
+  ORDINARY_SEED_CHANCE,
 } from './data/bosses';
 import { POWER_SETS, type PowerSet } from './data/powersets';
 import { POWER_ORIGINS, type PowerOrigin } from './data/origins';
@@ -489,6 +495,97 @@ console.log('a boss gets harder every time it gets away');
   }
 }
 
+console.log('a boss left alone is a bill, and going and getting them ends it');
+{
+  // Everything else about a boss is charged to the player who engages one: the
+  // resistance steps out and the growth bonus all land on whoever turns up. This
+  // is the axis that punishes the player who does not, and it is the reason a
+  // boss can be described as a bill for attention you did not spend.
+  //
+  // It is a pure derivation off influence past the threshold, so it is checked
+  // as one first and then as something a real run does.
+  const asVillain = (influence: number, boss: VillainData['boss'] = 'TimeManipulation'): VillainData =>
+    ({ id: 'x', alias: 'X', backedBy: null, influence, status: 'active', boss, powers: [] }) as unknown as VillainData;
+
+  check(
+    'a boss nobody has let run yet is not billing anything',
+    bossBill(asVillain(BOSS_THRESHOLD)) === 0 && bossBill(asVillain(BOSS_THRESHOLD - 20)) === 0,
+    `${bossBill(asVillain(BOSS_THRESHOLD))} at the threshold`,
+  );
+  check(
+    'the bill rises the longer a boss is left alone',
+    bossBill(asVillain(BOSS_THRESHOLD + 30)) > bossBill(asVillain(BOSS_THRESHOLD + 5)),
+    `${bossBill(asVillain(BOSS_THRESHOLD + 5))} -> ${bossBill(asVillain(BOSS_THRESHOLD + 30))} past the threshold`,
+  );
+  check(
+    'the bill is bounded, so a neglected boss cannot accelerate for ever',
+    [0, 15, 30, 45, 100].every((over) => bossBill(asVillain(BOSS_THRESHOLD + over)) <= MAX_BILL_UNITS) &&
+      bossBill(asVillain(MAX_INFLUENCE)) === MAX_BILL_UNITS,
+    `${bossBill(asVillain(MAX_INFLUENCE))} units at ${MAX_INFLUENCE}, capped at ${MAX_BILL_UNITS}`,
+  );
+  check(
+    'an ordinary villain is never billed',
+    bossBill(asVillain(MAX_INFLUENCE, null)) === 0 && bossSeedChance(asVillain(MAX_INFLUENCE, null)) === ORDINARY_SEED_CHANCE,
+    `${bossSeedChance(asVillain(MAX_INFLUENCE, null))} against a boss at ${bossSeedChance(asVillain(MAX_INFLUENCE))}`,
+  );
+  check(
+    'a boss left alone spreads more work, and never more than a chance',
+    bossSeedChance(asVillain(MAX_INFLUENCE)) > BOSS_SEED_CHANCE &&
+      bossSeedChance(asVillain(MAX_INFLUENCE)) === BOSS_SEED_CHANCE + MAX_BILL_UNITS * BILL_SEEDING_STEP &&
+      bossSeedChance(asVillain(MAX_INFLUENCE)) < 1,
+    `${(BOSS_SEED_CHANCE * 100).toFixed(0)}% unbilled -> ${(bossSeedChance(asVillain(MAX_INFLUENCE)) * 100).toFixed(0)}% at the ceiling`,
+  );
+
+  // The claim that makes it a cost rather than a tax: engaging a boss is what
+  // stops the bill, because a knockback is applied before the board is ticked
+  // and the bill is read off influence. A player who goes and gets them can
+  // never pay this, however many times they come back.
+  //
+  // Swept for the same reason as the containment and kill halves: a run that was
+  // neglected long enough to bill a boss is by then close to losing the city, so
+  // pinning this to one seed pins it to that seed's luck. What is claimed is
+  // that the observation happens at all — that attention is what clears a bill,
+  // and it cannot be otherwise, because the bill is read off influence and
+  // influence only ever falls when somebody goes and gets them.
+  let sawBill = false;
+  let unitsAfter = -1;
+  let sawRaised = '';
+  let sawCleared = '';
+  for (let seed = 1; seed <= 24 && !sawBill; seed += 1) {
+    const { session: neglected } = GameSession.newGame({
+      realName: 'Bill Test',
+      alias: 'Bill Test',
+      powerSet: 'Telekinesis',
+      origin: 'alien',
+      seed: seed * 4001,
+    });
+    let target: VillainData | undefined;
+    for (let turn = 0; turn < 400 && !neglected.isOver; turn += 1) {
+      neglected.patrol();
+      target = neglected.villains.find((v) => v.boss !== null && v.status === 'active' && bossBill(v) > 0);
+      if (target) break;
+    }
+    if (!target) continue;
+    sawBill = true;
+    sawRaised = `${target.alias} billed ${bossBill(target)} at ${target.influence} (${(bossSeedChance(target) * 100).toFixed(0)}% seeding)`;
+    let attempts = 0;
+    while (attempts < 12 && bossBill(target) > 0 && !neglected.isOver) {
+      try {
+        neglected.huntVillain(target.id, 'swift', 'tactical');
+      } catch {
+        break;
+      }
+      attempts += 1;
+    }
+    sawCleared =
+      `${bossBill(target)} after ${attempts} hunts, now at ${target.influence}` +
+      `${neglected.isOver ? ' (the run had already ended)' : ''}`;
+    unitsAfter = bossBill(target);
+  }
+  check('neglect alone runs a boss up a bill', sawBill, 'no boss billed across 24 neglected runs');
+  check('going and getting them ends the bill', sawBill && unitsAfter === 0, sawRaised + ' -> ' + sawCleared);
+}
+
 console.log('a returned boss is never one night from zero');
 {
   // The containment branch cost what it cost by accident: `BOSS_RETURN_INFLUENCE`
@@ -758,7 +855,24 @@ console.log('attention is the whole game');
 
   check('focusing beats spreading', focus.avg > spread.avg, `${focus.avg} vs ${spread.avg}`);
   check('focusing beats doing nothing at all', focus.avg > neglect.avg, `${focus.avg} vs ${neglect.avg}`);
-  check('aimless intervention is not a strategy', spread.avg <= neglect.avg + 10, `${spread.avg} vs ${neglect.avg}`);
+  // "Aimless intervention is barely better than doing nothing", and the old
+  // check for it was a fixed +10 turns, which sat *exactly* on its boundary
+  // (42 against 32) and which the neighbouring comment had already called
+  // meaningless: ten turns is nothing on a run of 220 and a lot on a run of 19.
+  //
+  // The scale-free form is what the claim actually says. Focusing buys
+  // `focus - neglect` turns over inaction, and turning up without a target may
+  // capture only a fraction of that difference. A third is the ceiling, not a
+  // measured figure, and it is deliberately loose enough to keep the documented
+  // exception alive: where the trust clock ends the run rather than conquest,
+  // merely showing up does buy time, because attending any incident at all stops
+  // it expiring. That exception is asserted where it matters — aimless never
+  // survives a run, on any city.
+  check(
+    'aimless intervention is not a strategy',
+    spread.avg - neglect.avg <= (focus.avg - neglect.avg) / 3,
+    `${spread.avg} against ${neglect.avg}, and focusing buys ${focus.avg - neglect.avg}`,
+  );
   check('focusing is the only route to survival', focus.survived > 0 && spread.survived === 0, `${focus.survived} vs ${spread.survived}`);
   check('the game is not trivially winnable by focusing alone', focus.survived < 200, `${focus.survived}/200 survived`);
 }

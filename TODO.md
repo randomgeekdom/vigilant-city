@@ -26,26 +26,26 @@ Play an Easy and a Backbreaking run start to finish with the meter in front of t
 each one actually feels like it pulls — too early, too late, or not at all — before the next balance pass
 trusts these numbers again.
 
-## Bosses narrowed the strategy gap instead of widening it
+## Every balance claim in the design is a turn count, and a turn is not a scale
 
-Uncovered by the boss work. DESIGN.md §10.4 records the before/after: before bosses the sweep read
-54 / 59 / 142 with 6 survivors, after them 33 / 42 / 110 with 2. Every strategy got shorter, which is
-intended — neglect produces bosses and aimless play feeds them — but the gap between focused play and
-aimless play narrowed from 83 turns to 68 when the intent was to widen it, because a boss is supposed to
-punish the player who ignores people *more* than the player who goes and gets them. As it stands the
-mechanic is roughly neutral on that gap. Something that hits only the inattentive, or a cheaper hunt
-against bosses, would restore the ordering. `BOSS_POWERS` in `data/bosses.ts` is the place to look.
+Uncovered by the boss-gap work, and the reason that item was closed as "the mechanic was roughly neutral"
+when it was not. The gap between focused and aimless play was measured in mean turns, and adding bosses
+shortened *every* strategy by about 28% — so the spread fell from 83 turns to 60 with the strategy ratio
+untouched (2.41x -> 2.43x). The number that moved was run length, not the mechanic being measured.
 
-Giving the escalation teeth moved this the *wrong* way and the reason is worth keeping, because it
-rules out the obvious fix. Pricing containment deliberately (40 -> 45 return, and a step out of both
-resistance multipliers per escape) took the spread from 68 to 60, but the two halves came apart cleanly:
-with the escalation in place and the return figure left at 40, the Average city still reads 32 / 42 / 110
-and survival *rises* from 2/200 to 6/200. Escalation lands on whoever engages, because mopping up is
-already a dead end and the hunt is the only route left — a boss who escaped six times is six more nights
-for the attentive player. So "make bosses escalate harder" cannot widen this gap; it is a cost charged
-for the fight rather than for the neglect. What is needed is a cost charged for the neglect itself —
-something that gets worse the longer a boss sits unattended and unattended — which is a different
-mechanic from anything in `BOSS_POWERS`.
+DESIGN.md §10.4 now states the boss claim as a ratio, but the harness still only prints turns, and most of
+the assertions downstream of it are still turn bands of one kind or another. Have it print the
+focus-to-aimless and focus-to-neglect *ratios* beside the means, and go back through the remaining turn
+bands — particularly the city ladder in §10.5, whose ordering survives partly by arithmetic — restating
+them in units that do not move when the runs do.
+
+Two routes to that gap were also measured and are ruled out, so nobody re-derives them (DESIGN.md §10.4):
+a cheaper hunt against bosses is not choosable, because mopping up is already at zero progress by full
+escalation so a cheap hunt pushes bosses into the containment branch instead, which is a stall — 106 / 93
+/ 95 / 99 turns at 90% / 80% / 70% / 60% of today's hunt resistance, a spike rather than a gradient. And
+`BOSS_DEATH_TRUST_COST` is the one number that moves focused play materially and it moves the wrong way:
+0 buys ten turns and a survivor, 3 costs twenty-eight. That is the fork's price working, and it is charged
+to whoever wins, so it is not a lever on this gap either.
 
 ## The disclosure path never fires
 
