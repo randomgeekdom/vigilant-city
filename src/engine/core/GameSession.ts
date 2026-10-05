@@ -24,7 +24,7 @@ import { DISTRICT_LABELS, DISTRICTS } from '../data/districts';
 import { INCIDENT_TYPE_DEFS } from '../data/incidentTypes';
 import { ORIGIN_DEFS } from '../data/origins';
 import { POWER_SET_DEFS } from '../data/powersets';
-import { rosterTrust, TRUST_LOST, trustFloor as requiredTrust, trustVerdict, type TrustVerdict } from '../data/reputation';
+import { rosterTrust, TRUST_LOST, trustFloor as requiredTrust, trustMargin as marginFromFloor, trustVerdict, type TrustVerdict } from '../data/reputation';
 import { CELL_DEFS } from '../data/cells';
 import type { OrganizationData } from '../data/organizations';
 import {
@@ -238,6 +238,11 @@ export class GameSession {
 
   get trustState(): TrustVerdict {
     return trustVerdict(this.trust, this.trustFloor);
+  }
+
+  /** How far the city is from stopping believing in us. The number the floor is played against. */
+  get trustMargin(): number {
+    return marginFromFloor(this.trust, this.trustFloor);
   }
 
   // ---------- the core action ----------

@@ -4,7 +4,7 @@ import { POWER_SET_DEFS } from '../../engine/data/powersets';
 import { APPROACH_DEFS } from '../../engine/data/approaches';
 import { DIFFICULTY_DEFS } from '../../engine/data/difficulty';
 import { CELL_DEFS } from '../../engine/data/cells';
-import { trustFill, type TrustVerdict } from '../../engine/data/reputation';
+import { trustFill, unansweredNights, type TrustSample, type TrustVerdict } from '../../engine/data/reputation';
 import type { HeroData } from '../../engine/core/types';
 
 const TRUST_READING: Record<TrustVerdict, string> = {
@@ -15,14 +15,17 @@ const TRUST_READING: Record<TrustVerdict, string> = {
 
 interface Props {
   session: GameSession;
+  trail: readonly TrustSample[];
   onDisclose: (heroId: string) => void;
 }
 
-export function RosterView({ session, onDisclose }: Props) {
+export function RosterView({ session, trail, onDisclose }: Props) {
   const playerId = session.playerHero?.id;
   const trust = session.trust;
   const floor = session.trustFloor;
   const verdict = session.trustState;
+  const margin = session.trustMargin;
+  const nights = unansweredNights(margin, session.allHeroes.length);
   return (
     <div className="panel">
       <h2>Heroes</h2>
@@ -40,6 +43,20 @@ export function RosterView({ session, onDisclose }: Props) {
           </div>
           <span className="muted">floor {floor}</span>
         </div>
+        <div className="trust-clock">
+          {margin >= 0 ? (
+            <strong>{margin} above the floor</strong>
+          ) : (
+            <strong className="bad">{Math.abs(margin)} under the floor</strong>
+          )}
+          {nights > 0 && (
+            <span className="muted">
+              {' — about '}
+              {nights} more {nights === 1 ? 'night' : 'nights'} of nobody answering
+            </span>
+          )}
+        </div>
+        <TrustTrace trail={trail} />
         <div className="muted small">{TRUST_READING[verdict]}</div>
         <div className="muted small">
           Every reputation above, added up. Not one of them can carry a city that has stopped
@@ -53,6 +70,33 @@ export function RosterView({ session, onDisclose }: Props) {
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * The run so far, as a distance from the floor, with the floor drawn as the line
+ * it is. Trust on its own only says where the city stands tonight; what a player
+ * cannot get from a number is whether the floor has been closing all run or only
+ * just started to, and that is the difference between a deadline that arrives and
+ * one that was always on its way. Cheap to draw and it is the only reading of the
+ * trust clock that survives a run of 200 turns.
+ */
+function TrustTrace({ trail }: { trail: readonly TrustSample[] }) {
+  if (trail.length < 2) return null;
+  const lowest = Math.min(0, ...trail.map((s) => s.margin));
+  const highest = Math.max(0, ...trail.map((s) => s.margin));
+  const span = highest - lowest || 1;
+  const width = 100;
+  const height = 28;
+  const y = (margin: number) => height - ((margin - lowest) / span) * height;
+  const points = trail
+    .map((sample, i) => `${((i / (trail.length - 1)) * width).toFixed(2)},${y(sample.margin).toFixed(2)}`)
+    .join(' ');
+  return (
+    <svg className="trust-trace" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+      <polyline className="trust-floor" points={`0,${y(0).toFixed(2)} ${width},${y(0).toFixed(2)}`} />
+      <polyline className="trust-line" points={points} />
+    </svg>
   );
 }
 

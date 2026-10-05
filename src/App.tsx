@@ -6,6 +6,7 @@ import type { Approach } from './engine/data/approaches';
 import type { PowerSet } from './engine/data/powersets';
 import type { PowerOrigin } from './engine/data/origins';
 import type { ThreatLevel } from './engine/data/difficulty';
+import type { TrustSample } from './engine/data/reputation';
 import { Sidebar } from './ui/components/Sidebar';
 import { ChronicleView } from './ui/components/ChronicleView';
 import { NewGame } from './ui/components/NewGame';
@@ -26,6 +27,7 @@ const TABS: readonly { key: TabKey; label: string }[] = [
 
 export function App() {
   const sessionRef = useRef<GameSession | null>(null);
+  const trustTrailRef = useRef<TrustSample[]>([]);
   const [, force] = useReducer((x: number) => x + 1, 0);
   const [tab, setTab] = useState<TabKey>('city');
   const [booted, setBooted] = useState(false);
@@ -40,7 +42,9 @@ export function App() {
         const data = parseSave(raw);
         if (data) {
           try {
-            sessionRef.current = GameSession.fromSnapshot(data);
+            const loaded = GameSession.fromSnapshot(data);
+            sessionRef.current = loaded;
+            trustTrailRef.current = [{ turn: loaded.turn, margin: loaded.trustMargin }];
             setHasSave(true);
           } catch {
             sessionRef.current = null;
@@ -62,6 +66,8 @@ export function App() {
 
   const commit = (fn: () => void) => {
     fn();
+    const s = sessionRef.current;
+    if (s) trustTrailRef.current.push({ turn: s.turn, margin: s.trustMargin });
     force();
     setTimeout(persist, 60);
   };
@@ -75,6 +81,7 @@ export function App() {
   }) => {
     const { session } = GameSession.newGame(opts);
     sessionRef.current = session;
+    trustTrailRef.current = [{ turn: 0, margin: session.trustMargin }];
     setHasSave(true);
     setTab('city');
     force();
@@ -88,7 +95,9 @@ export function App() {
       const data = parseSave(raw);
       if (!data) return;
       try {
-        sessionRef.current = GameSession.fromSnapshot(data);
+        const loaded = GameSession.fromSnapshot(data);
+        sessionRef.current = loaded;
+        trustTrailRef.current = [{ turn: loaded.turn, margin: loaded.trustMargin }];
         setTab('city');
         force();
       } catch {
@@ -99,6 +108,7 @@ export function App() {
 
   const abandon = () => {
     sessionRef.current = null;
+    trustTrailRef.current = [];
     setTab('city');
     force();
   };
@@ -163,7 +173,11 @@ export function App() {
             />
           )}
           {tab === 'roster' && (
-            <RosterView session={s} onDisclose={(id) => commit(() => s.disclose(id))} />
+            <RosterView
+              session={s}
+              trail={trustTrailRef.current}
+              onDisclose={(id) => commit(() => s.disclose(id))}
+            />
           )}
           {tab === 'politics' && (
             <PoliticsView

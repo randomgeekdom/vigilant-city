@@ -40,7 +40,7 @@ import {
 } from './data/difficulty';
 import { Random } from './core/Random';
 import { ideologyModifier } from './core/politics';
-import { rosterTrust, TRUST_LOST, trustFloor } from './data/reputation';
+import { rosterTrust, TRUST_LOST, TRUST_MARGIN, trustFloor, type TrustSample } from './data/reputation';
 import { BACKED_PENALTY, HUNT_MULTIPLIER, INFLUENCE_ON_FAILURE, INFLUENCE_ON_SUCCESS, knockback, MAX_INFLUENCE } from './data/villains';
 
 let failures = 0;
@@ -69,11 +69,23 @@ function onCity(threat: ThreatLevel): string {
   return `${/^[AEIOU]/.test(label) ? 'an' : 'a'} ${label.toLowerCase()} city`;
 }
 
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid]! : Math.round((sorted[mid - 1]! + sorted[mid]!) / 2);
+}
+
+function turns(count: number): string {
+  return `${count} ${count === 1 ? 'turn' : 'turns'}`;
+}
+
 function playRun(
   seed: number,
   maxTurns: number,
   strategy: 'neglect' | 'random' | 'focus' = 'random',
   threat: ThreatLevel = DEFAULT_THREAT,
+  trace?: TrustSample[],
 ): GameSession {
   const rng = new Random(seed ^ 0x5eed);
   const powerSet = rng.pick(POWER_SETS) as PowerSet;
@@ -89,6 +101,7 @@ function playRun(
 
   let guard = 0;
   while (!session.isOver && session.turn < maxTurns && guard < 10_000) {
+    if (trace) trace.push({ turn: session.turn, margin: session.trustMargin });
     if (strategy === 'neglect') {
       session.patrol();
       guard += 1;
@@ -131,6 +144,7 @@ function playRun(
     }
     guard += 1;
   }
+  if (trace) trace.push({ turn: session.turn, margin: session.trustMargin });
   return session;
 }
 
@@ -826,32 +840,118 @@ console.log('patrol costs a turn');
   check('patrol then adds work', session.openIncidents.length > 0);
 }
 
+/**
+ * One cell of the attention sweep: the same 200 seeds, the same strategies, with
+ * the trust clock read as a *timing* rather than as a terminal cause.
+ *
+ * `onTrust` says how many runs ended on the floor and nothing about how long
+ * before the end the city started asking, which is the only question "does this
+ * floor pull too early, too late, or not at all" can be answered with. So the
+ * margin is read every turn and the cell separates two readings that look alike
+ * on the board and are not alike to play:
+ *
+ *  - **committed**: the turn from which the run never leaves the margin again. An
+ *    earlier brush is noise — trust moves both ways, and a run that grazes the
+ *    floor and recovers was never in danger. The committed pull is the deadline.
+ *  - **warning**: how many turns of it there are. This is the felt clock. Two
+ *    turns of warning on a two-hundred-turn run is a cliff, and forty is a run
+ *    that ends in a way you could see coming, and both are the same number of
+ *    points of margin.
+ *
+ * `neverFelt` and `neverCommitted` are the two scale-free shapes at the other end,
+ * and `warningShare` is warning as a fraction of the run so the four cities can
+ * be compared without pretending a turn means the same thing on each.
+ */
+interface SweepCell {
+  avg: number;
+  survived: number;
+  maxTurns: number;
+  onTrust: number;
+  committed: number;
+  warning: number;
+  warningShare: number;
+  neverFelt: number;
+  neverCommitted: number;
+}
+
+/**
+ * The turn from which every remaining sample is inside the margin, or null if the
+ * run leaves it again before the end. Walking backwards from the last sample is
+ * the only way to find it: the first touch is not the question.
+ */
+function committedTurn(trace: TrustSample[]): number | null {
+  for (let i = trace.length - 1; i >= 0; i -= 1) {
+    if (trace[i]!.margin >= TRUST_MARGIN) return trace[i + 1]?.turn ?? null;
+  }
+  return trace[0]?.turn ?? null;
+}
+
+function sweepCell(
+  strategy: 'neglect' | 'random' | 'focus',
+  threat: ThreatLevel = DEFAULT_THREAT,
+): SweepCell {
+  let total = 0;
+  let survived = 0;
+  let maxTurns = 0;
+  let onTrust = 0;
+  let neverFelt = 0;
+  let neverCommitted = 0;
+  const committed: number[] = [];
+  const warning: number[] = [];
+  const warningShare: number[] = [];
+  for (let seed = 1; seed <= 200; seed += 1) {
+    const trace: TrustSample[] = [];
+    const s = playRun(seed * 7919, 600, strategy, threat, trace);
+    total += s.turn;
+    maxTurns = Math.max(maxTurns, s.turn);
+    if (!s.isOver) survived += 1;
+    if (s.overReason === TRUST_LOST) onTrust += 1;
+    if (!trace.some((sample) => sample.margin < TRUST_MARGIN)) neverFelt += 1;
+    const committedAt = committedTurn(trace);
+    if (committedAt === null) {
+      neverCommitted += 1;
+      continue;
+    }
+    committed.push(committedAt);
+    warning.push(s.turn - committedAt);
+    warningShare.push((s.turn - committedAt) / Math.max(1, s.turn));
+  }
+  return {
+    avg: Math.round(total / 200),
+    survived,
+    maxTurns,
+    onTrust,
+    committed: median(committed),
+    warning: median(warning),
+    warningShare: median(warningShare),
+    neverFelt,
+    neverCommitted,
+  };
+}
+
 console.log('attention is the whole game');
 {
   // Neglect: never intervene, just keep patrolling.
-  const measure = (
-    strategy: 'neglect' | 'random' | 'focus',
-    threat: ThreatLevel = DEFAULT_THREAT,
-  ) => {
-    let total = 0;
-    let survived = 0;
-    let maxTurns = 0;
-    let onTrust = 0;
-    for (let seed = 1; seed <= 200; seed += 1) {
-      const s = playRun(seed * 7919, 600, strategy, threat);
-      total += s.turn;
-      maxTurns = Math.max(maxTurns, s.turn);
-      if (!s.isOver) survived += 1;
-      if (s.overReason === TRUST_LOST) onTrust += 1;
-    }
-    return { avg: Math.round(total / 200), survived, maxTurns, onTrust };
-  };
-  const neglect = measure('neglect');
-  const spread = measure('random');
-  const focus = measure('focus');
+  const neglect = sweepCell('neglect');
+  const spread = sweepCell('random');
+  const focus = sweepCell('focus');
   console.log(`  info never intervening:  avg ${neglect.avg} turns, ${neglect.survived}/200 survived, ${neglect.onTrust} on trust`);
   console.log(`  info spreading attention: avg ${spread.avg} turns, ${spread.survived}/200 survived, ${spread.onTrust} on trust`);
   console.log(`  info focused attention:  avg ${focus.avg} turns, ${focus.survived}/200 survived, ${focus.onTrust} on trust (longest ${focus.maxTurns})`);
+  // When the floor starts being the run's clock, per strategy, so the §11.1 claim
+  // that skill buys time rather than a better floor is a measured one.
+  console.log('  info when the floor pulls on the average city, median over 200 seeds');
+  for (const [label, cell] of [
+    ['never intervening', neglect],
+    ['spreading', spread],
+    ['focused', focus],
+  ] as const) {
+    console.log(
+      `  info ${label.padEnd(19)} commits at turn ${cell.committed} of ${cell.avg}, ` +
+        `${turns(cell.warning)} of warning, ${cell.neverFelt}/200 never came near it, ` +
+        `${cell.neverCommitted}/200 never committed`,
+    );
+  }
 
   check('focusing beats spreading', focus.avg > spread.avg, `${focus.avg} vs ${spread.avg}`);
   check('focusing beats doing nothing at all', focus.avg > neglect.avg, `${focus.avg} vs ${neglect.avg}`);
@@ -883,24 +983,11 @@ console.log('how hard is the city');
   // attention and lost by running out of goodwill, so a city that changes only
   // one of them is half a difficulty setting, and the sweep below is the only
   // thing here that would notice.
-  const measure = (strategy: 'neglect' | 'random' | 'focus', threat: ThreatLevel) => {
-    let total = 0;
-    let survived = 0;
-    let onTrust = 0;
-    for (let seed = 1; seed <= 200; seed += 1) {
-      const s = playRun(seed * 7919, 600, strategy, threat);
-      total += s.turn;
-      if (!s.isOver) survived += 1;
-      if (s.overReason === TRUST_LOST) onTrust += 1;
-    }
-    return { avg: Math.round(total / 200), survived, onTrust };
-  };
-
   const rows = THREAT_LEVELS.map((threat) => ({
     threat,
-    neglect: measure('neglect', threat),
-    spread: measure('random', threat),
-    focus: measure('focus', threat),
+    neglect: sweepCell('neglect', threat),
+    spread: sweepCell('random', threat),
+    focus: sweepCell('focus', threat),
   }));
 
   console.log('  info 200 seeds per cell, 600-turn cap');
@@ -910,6 +997,22 @@ console.log('how hard is the city');
       `  info ${THREAT_DEFS[row.threat].label.padEnd(14)}` +
         ` never ${pad(row.neglect.avg)}  random ${pad(row.spread.avg)}  focus ${pad(row.focus.avg)}` +
         `  (focus ${row.focus.survived}/200 survived, ${row.focus.onTrust}/200 on trust)`,
+    );
+  }
+
+  // When the floor arrives, which is the question the ladder's trust column is
+  // really about. The warning is the number a player would describe as "too
+  // early" or "too late", and the two `never` columns are "not at all".
+  console.log('  info when the floor pulls, focused play, median over 200 seeds');
+  for (const row of rows) {
+    const f = row.focus;
+    console.log(
+      `  info ${THREAT_DEFS[row.threat].label.padEnd(14)}` +
+        ` the floor becomes the run's clock at turn ${pad(f.committed)} (n=${200 - f.neverCommitted} of 200),` +
+        ` and it does it with ${turns(f.warning)} of warning — ${Math.round(f.warningShare * 100)}% of the run`,
+    );
+    console.log(
+      `  info ${''.padEnd(14)} ${pad(f.neverFelt)}/200 never came near it, ${pad(f.neverCommitted)}/200 never committed to it`,
     );
   }
 
@@ -923,6 +1026,26 @@ console.log('how hard is the city');
     THREAT_LEVELS.every((t, i) => i === 0 || trustFloor(3, t) > trustFloor(3, THREAT_LEVELS[i - 1]!)),
     THREAT_LEVELS.map((t) => trustFloor(3, t)).join(' < '),
   );
+
+  // The floor column's claim in the only units it can be honest in. The table it
+  // comes from says a harder city asks for its debt back sooner, and the floor
+  // being higher is not that: a floor can arrive late and still be high. These are
+  // the two ways to say it that survive the runs getting shorter, and the print
+  // above is the shape behind them.
+  for (let i = 1; i < rows.length; i += 1) {
+    const here = rows[i]!;
+    const before = rows[i - 1]!;
+    check(
+      `more of the run is spent under the floor's thumb on ${onCity(here.threat)} than on ${onCity(before.threat)}`,
+      here.focus.warningShare > before.focus.warningShare,
+      `${Math.round(before.focus.warningShare * 100)}% -> ${Math.round(here.focus.warningShare * 100)}%`,
+    );
+    check(
+      `focused play commits to the floor more often on ${onCity(here.threat)} than on ${onCity(before.threat)}`,
+      here.focus.neverCommitted <= before.focus.neverCommitted,
+      `${before.focus.neverCommitted}/200 -> ${here.focus.neverCommitted}/200`,
+    );
+  }
 
   // The claim the whole design rests on has to survive the knob. If focusing
   // stops beating aimless play somewhere on the ladder, the setting has broken

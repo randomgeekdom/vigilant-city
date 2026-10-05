@@ -581,6 +581,43 @@ Three things worth keeping:
 3. **Easy is winnable and still not a formality.** 13/200 focused runs survive the 600-turn cap, against
    1/200 on Average, and the harness is three lines of scripted heuristics rather than a player.
 
+#### When the floor actually pulls
+
+The column above counts *outcomes* — how many runs ended on the floor — and an outcome says nothing about
+whether the floor was a clock you played against or a condition that arrived at the end. So the harness
+reads the trust margin every turn and, for each city, records the turn from which a focused run never
+leaves the margin again, how many turns of warning it gets before that, and how many runs never commit to
+the floor at all. Median over the same 200 seeds:
+
+| City | The floor becomes the run's clock at | Warning | Of the run | Never came near it | Never committed |
+| --- | --- | --- | --- | --- | --- |
+| Easy | turn 223 (n=9) | 1 turn | 1% | 151/200 | 191/200 |
+| Average | turn 44 (n=135) | 2 turns | 4% | 1/200 | 65/200 |
+| Difficult | turn 8 (n=181) | 4 turns | 29% | 1/200 | 19/200 |
+| Backbreaking | turn 0 (n=200) | 5 turns | 100% | 0/200 | 0/200 |
+
+Every column is a median over the 200 seeds of that city, and the medians are taken over the runs that
+commit at all — which is why Easy's `n=9` is printed. A run that never enters the margin has no
+committed turn, and Easy is mostly those.
+
+This is a real result and it is not flattering. **The warning is one to five turns on every city and the
+margin can be crossed inside a single turn** — the meter calls `slipping` within six points of the floor
+and one unattended night costs a whole roster, so on most runs that band is jumped rather than travelled
+through. The floor therefore reads as a cliff with a countdown attached rather than as a clock closing over
+a run, and on Easy it is not a mechanic at all for 191 runs out of 200: those runs are not nearly lost on
+confidence, they are never asked the question.
+
+What the ladder *does* do, and the playtest asserts in the two units that survive the runs getting
+shorter, is make the floor bite earlier and more often: `warningShare` rises 1% → 4% → 29% → 100% and
+`neverCommitted` falls 191 → 65 → 19 → 0. The floor column in the table above is real. It is simply a
+sharper knife rather than a longer clock, and whether a sharper knife is the right way to scale the second
+half of a difficulty setting is the open question §11.1 ends on.
+
+None of these numbers have been re-fitted against them. The floors were last fitted to run lengths, and a
+run length cannot tell you this — so re-fitting them to *these* numbers would be the same mistake wearing a
+different hat. A human has still not played an Easy and a Backbreaking run with the meter in front of
+them; that is what the TODO carries.
+
 Easy has been winnable at a price twice now. Pricing the containment branch deliberately (§10.3) took it
 from 19 survivors to 9, and the bill for leaving a boss alone (§10.3) has put four of them back — which
 is the shape you want from a mechanic that punishes neglect, since the attentive player is the one who
@@ -625,11 +662,35 @@ difficulty setting rather than being global — see §10.5 for the table, includ
 What the playtest found is that this is a **patience clock, not a skill clock**, and that is the more
 interesting result. Trust at the end of a run sits in a narrow band (median −10 focused, −4 aimless, −8
 never intervening) however you played — the bleed is driven by how much damage the city has taken, not by
-how cleverly you took it. What skill buys is *time*: focused play meets the floor at turn 78 on average,
-aimless play at 21. So the floor does not add a skill test, it adds the sentence the whole
-design has been circling: **you can survive any single crisis, but you cannot keep doing this for two
-hundred nights.** Long runs now die of exhaustion rather than conquest, and 101/200 focused runs end that
-way.
+how cleverly you took it. What skill buys is *time*: focused play does not commit to the floor until turn 44
+against 24 for doing nothing and 23 for turning up without a target, and it is the strategy least likely
+to commit at all (135/200 runs against 124/200 and 106/200). So the floor does not add a skill test, it
+adds the sentence the whole design has been circling: **you can survive any single crisis, but you cannot
+keep doing this for two hundred nights.** Long runs now die of exhaustion rather than conquest, and 101/200
+focused runs end that way.
+
+What skill does *not* buy is notice. The median focused run gets the same two turns of warning as an
+aimless one, and so does every other city — what attention buys is how many nights pass before the floor is
+the run's clock at all, not how long you get to watch it coming. Read as a share of the run the median
+focused run spends 4% of itself inside the margin, and on Average that is the entire difference between
+winning and being stood down. Both numbers are in the harness because neither one is a balance knob: they
+are what the floor *is*, and §10.5 shows what it does across the ladder.
+
+**The floor arrives as a cliff, not a clock, and that is now measured rather than suspected.** On all four
+cities a focused run gets between one and five turns of warning before the floor becomes its clock
+(§10.5), because the meter only calls `slipping` within six points and one unattended night costs a whole
+roster — so the warning band is narrower than a single turn of trust movement at the endgame and gets
+jumped rather than travelled through. On Easy 191/200 focused runs never commit to the floor at all. The
+floor as fitted is a terminal condition with a knife in it, not something a player watches closing over a
+run, and that is the honest summary of `trustFloorPerHero`: it is fitted to run lengths and to the
+strategy ordering, and neither of those can see this. Whether the band is the thing to widen is the open
+question; nothing here has been re-fitted to make the warning look longer, because a longer warning measured
+by the same three scripted strategies would be exactly the fit that produced the number in the first place.
+
+The meter is built so that a human can answer that question rather than guess at it. The roster panel leads
+with the **distance to the floor** in points and in nights of nobody answering, and draws the run's margin
+against the floor line so it is visible whether the floor has been closing all along or only just started
+to.
 
 Two consequences worth keeping:
 

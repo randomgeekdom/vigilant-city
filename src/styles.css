@@ -631,6 +631,36 @@ input:focus {
 .trust .small + .small {
   margin-top: 5px;
 }
+.trust-clock {
+  margin-top: 6px;
+  font-size: 12px;
+}
+.trust-trace {
+  display: block;
+  width: 100%;
+  height: 30px;
+  margin: 6px 0 2px;
+}
+.trust-trace .trust-line {
+  fill: none;
+  stroke: var(--good);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.trust-trace .trust-floor {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.6;
+  vector-effect: non-scaling-stroke;
+}
+.trust-slipping .trust-trace .trust-line {
+  stroke: var(--warn);
+}
+.trust-failing .trust-trace .trust-line {
+  stroke: var(--bad);
+}
 .bar {
   flex: 1;
   height: 5px;

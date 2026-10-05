@@ -57,6 +57,44 @@ export function trustVerdict(trust: number, floor: number): TrustVerdict {
 }
 
 /**
+ * How far the city is from stopping believing in the roster. Positive above the
+ * floor, negative under it.
+ *
+ * Trust on its own does not say whether a run is nearly over: on a roster of
+ * four, +4 is one bad night from the end and +40 is a city that has stopped
+ * counting. The floor is only a threat relative to the distance to it, so that
+ * distance is the number the meter leads with and the number a player reads the
+ * clock by.
+ */
+export function trustMargin(trust: number, floor: number): number {
+  return trust - floor;
+}
+
+/**
+ * How many more crimes can go unanswered before the city gives the roster up.
+ *
+ * An unattended crime costs *every* hero on the roster a point, so a night of
+ * inattention spends the margin a whole roster at a time and the count has to
+ * divide by it. It is the roughest possible statement of the trust clock and the
+ * most useful one at the board: the floor reads as an abstract number, this reads
+ * as "three more nights like that one".
+ *
+ * It is a floor on a full roster, which is the state a run settles into. Below
+ * four heroes an unattended night does not spend goodwill at all — Vigilant puts
+ * a relief hero on the roster instead, and the cost of that is a bigger promise
+ * rather than a smaller sum, because the floor is per guardian (§11.1).
+ */
+export function unansweredNights(margin: number, rosterSize: number): number {
+  return Math.floor(margin / Math.max(1, rosterSize));
+}
+
+/** One turn's reading of the distance to the floor, which is what the meter draws. */
+export interface TrustSample {
+  turn: number;
+  margin: number;
+}
+
+/**
  * Meter geometry, kept with the rules so the UI cannot disagree with the model:
  * the bar is full at the margin above the floor, and empty once the floor is
  * gone. The number beside it is the honest one; the bar is only for reading

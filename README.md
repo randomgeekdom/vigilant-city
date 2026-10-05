@@ -49,7 +49,9 @@ an act of neglect. **At 100 influence a villain has won and the run ends.**
 There is a second way to lose, and it is not a person. The city's trust is every hero's reputation added
 up, and under **−3 per guardian on the roster** the city stops believing in its guardians and the run
 ends. Nothing new feeds it — it moves on work answered, covers blown, and crimes nobody showed up for —
-so it is a clock you keep honest by answering calls, not a second resource to manage.
+so it is a clock you keep honest by answering calls, not a second resource to manage. The Heroes panel
+reads it as a distance rather than a score: how far above the floor the city is, how many nights of nobody
+answering that is worth, and the whole run's margin drawn against the floor line.
 
 You can also **hunt** someone directly, any time, even when they are not committing a crime. It costs a
 full turn and knocks back 1.4× — it took the whole night. Without it, a villain closest to winning would
@@ -122,7 +124,7 @@ averages 105 with 1 survivor**. Aimless heroics is barely better than doing noth
 | **Approaches** | Diplomatic / Lethal / Stealthy / Swift / Tactical. Pick exactly two. Lethal kills; everything else imprisons. |
 | **Villains** | The second board. Influence, external backers, and a hunt action. |
 | **Bosses** | Neglected villains earn a second power at 55 influence, resist mopping-up, escalate every time they get away, and end in a fork: kill them and pay standing, or contain them and fight the same fight again for two more nights. |
-| **City trust** | The roster's reputations, summed, against a floor. The other way to lose: the city stops believing in its guardians. |
+| **City trust** | The roster's reputations, summed, against a floor. The Heroes panel shows how far above the floor you are, in points *and* in nights of nobody answering, with the run's margin drawn against the floor line. The other way to lose: the city stops believing in its guardians. |
 | **Difficulty** | Four cities. Each moves the price of inattention and the trust floor; none of them adds a decay. |
 | **Inheritance** | When your hero dies, you become another. The city still needs a guardian. |
 | **Secret identity** | A job and specific people are at stake. Exposure is rolled, not narrated. Disclosure is a real counter-strategy. |
@@ -150,7 +152,7 @@ src/
       incidentTypes.ts        5 incident types + per-approach modifier shapes
       villains.ts             influence tiers, knockback, hunting multiplier
       bosses.ts               boss powers, growth, and the kill/contain fork
-      reputation.ts           city trust: the roster sum, its floor, its verdict
+      reputation.ts           city trust: the roster sum, its floor, the margin and the meter
       cells.ts                4 metapolitical cells, origin -> cell
       organizations.ts        external organisation templates
       civilian.ts             civilian jobs and ties
