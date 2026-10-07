@@ -6,22 +6,14 @@ Remove an item when it is done. If the work uncovers something new, add it here.
 Ordered roughly by value per unit of effort. Each item says where it comes from, so nobody has to
 re-derive it.
 
-## The floor warns for one turn, because the warning band is narrower than a night
+## Make a `/run` skill that starts the app
 
-Found by measuring *when* the trust floor arrives rather than how many runs end on it (see the note at the
-end of this file). `TRUST_MARGIN` is 6 and the meter calls `slipping` inside it, while an unattended night
-costs every hero on the roster a point — three to five. The band is narrower than one turn of trust
-movement at the endgame, so runs cross it rather than travel through it, and the measured warning on
-focused play is 1 / 2 / 4 / 5 turns on Easy / Average / Difficult / Backbreaking. The floor reads as a
-cliff with a countdown attached rather than as a clock closing over a run.
-
-This is display-only, which is the useful part: `TRUST_MARGIN` reaches nothing but `trustVerdict`, so
-widening it cannot touch the balance. The obvious fix is a band that is a roster rather than a constant —
-"the city starts asking within two nights of losing it" — which reads in the same units as the nights
-countdown the roster panel now shows. Do not pick the width by feel: measure how many turns of warning
-each candidate width actually produces, on all four cities, and take the one that warns without the floor
-becoming a thing you are managing. Assert the warning in the same scale-free units the harness prints it in,
-or the next person will shorten it again.
+Skills live under `.opencode/skill/` (see the `customize-opencode` skill for the format), and there is
+one for editing opencode's own config but none for the thing this repo actually is: a playable game.
+`npm start` is the only way to reach the part of the design the harness cannot measure — the second item
+on this list is blocked on a human being able to launch a city quickly enough to play it. A `/run` skill
+should launch the app (Electron window via `npm start`) and say what to look at while playing, so
+playtesting is one command away rather than something you have to remember the shape of.
 
 ## The trust floor and the difficulty ladder have still never met a human
 
@@ -49,13 +41,27 @@ too early, too late, or not at all — against these measured baselines:
 | | The floor becomes the run's clock at | Warning | Never committed to it |
 | --- | --- | --- | --- |
 | Easy | turn 223 (n=9 of 200) | 1 turn, 1% of the run | 191/200 |
-| Average | turn 44 (n=135) | 2 turns, 4% of the run | 65/200 |
+| Average | turn 44 (n=137) | 2 turns, 4% of the run | 63/200 |
 | Backbreaking | turn 0 (n=200) | 5 turns, 100% of the run | 0/200 |
 
 The specific thing to check is whether the floor is *perceptible* at all before it is fatal, which the
 numbers say it mostly is not: on Easy 191 runs out of 200 never enter the margin, and on Average the median
 run gets two turns. Whether that reads as a run that ended unfairly or as a run that ended, is the answer
 the next balance pass needs and the harness cannot give it.
+
+Widening the warning band to two nights of movement did not change any of this — the warning is still
+1 / 2 / 4 / 5 turns, and the other widths are priced in DESIGN.md §10.5 — so the shortness is not something
+the display can reach. It is a fact about `trustFloorPerHero`, and that is the half only a person can
+judge.
+
+## The margin trace draws the floor but not the band
+
+`TrustTrace` in `src/ui/components/RosterView.tsx` draws one line: the floor. The warning band is the other
+edge of the reading — the point where the verdict flips to `slipping` and the countdown beside it reads two
+nights — and it is the line that would show whether the floor has been closing all run or only just started
+to, which is the sentence in that component's own doc comment. The band is a roster, so the line is a
+polyline over each sample's `roster`, and `TrustSample` carries it already. Cheap, and it is the display
+half of making the floor perceptible (the item above it is the half only a person can judge).
 
 ## Every balance claim in the design is a turn count, and a turn is not a scale
 
@@ -146,9 +152,10 @@ So the harness now samples the margin every turn and reports the turn from which
 again, the turns of warning before that, and the runs that never commit at all — all in shares of the run
 as well as turns, because the second item on this list is right that a turn on a 215-turn Easy run is not a
 turn on a 10-turn Backbreaking one. Both new ladder assertions are in those units (`warningShare` rising
-1% → 4% → 29% → 100%, `neverCommitted` falling 191 → 65 → 19 → 0), so the next person to move
+1% → 4% → 29% → 100%, `neverCommitted` falling 191 → 63 → 19 → 0), so the next person to move
 `trustFloorPerHero` sees the shape before they see the run length, and cannot make the floor arrive later
-without making it arrive more often.
+without making it arrive more often. The warning band's own two assertions are in the same units, and the
+widths they guard are priced in DESIGN.md §10.5.
 
 ## Note: where 45 and the resistance steps came from
 `BOSS_RETURN_INFLUENCE` was 40 and `bossResistance` read only `villain.boss`, the first power. Both are

@@ -237,7 +237,7 @@ export class GameSession {
   }
 
   get trustState(): TrustVerdict {
-    return trustVerdict(this.trust, this.trustFloor);
+    return trustVerdict(this.trust, this.trustFloor, this.state.heroRoster.length);
   }
 
   /** How far the city is from stopping believing in us. The number the floor is played against. */

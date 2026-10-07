@@ -40,7 +40,7 @@ import {
 } from './data/difficulty';
 import { Random } from './core/Random';
 import { ideologyModifier } from './core/politics';
-import { rosterTrust, TRUST_LOST, TRUST_MARGIN, trustFloor, type TrustSample } from './data/reputation';
+import { rosterTrust, TRUST_LOST, trustFloor, trustWarningBand, unansweredNights, WARNING_NIGHTS, type TrustSample } from './data/reputation';
 import { BACKED_PENALTY, HUNT_MULTIPLIER, INFLUENCE_ON_FAILURE, INFLUENCE_ON_SUCCESS, knockback, MAX_INFLUENCE } from './data/villains';
 
 let failures = 0;
@@ -101,7 +101,7 @@ function playRun(
 
   let guard = 0;
   while (!session.isOver && session.turn < maxTurns && guard < 10_000) {
-    if (trace) trace.push({ turn: session.turn, margin: session.trustMargin });
+    if (trace) trace.push({ turn: session.turn, margin: session.trustMargin, roster: session.allHeroes.length });
     if (strategy === 'neglect') {
       session.patrol();
       guard += 1;
@@ -144,7 +144,7 @@ function playRun(
     }
     guard += 1;
   }
-  if (trace) trace.push({ turn: session.turn, margin: session.trustMargin });
+  if (trace) trace.push({ turn: session.turn, margin: session.trustMargin, roster: session.allHeroes.length });
   return session;
 }
 
@@ -861,6 +861,11 @@ console.log('patrol costs a turn');
  * `neverFelt` and `neverCommitted` are the two scale-free shapes at the other end,
  * and `warningShare` is warning as a fraction of the run so the four cities can
  * be compared without pretending a turn means the same thing on each.
+ *
+ * The cell also re-reads every run it played at each candidate width in
+ * `CANDIDATE_NIGHTS`, because the width of the band is a choice and this is the
+ * only place it can be measured: the band reaches `trustVerdict` and this
+ * reading, and nothing that decides whether a run is won.
  */
 interface SweepCell {
   avg: number;
@@ -872,18 +877,64 @@ interface SweepCell {
   warningShare: number;
   neverFelt: number;
   neverCommitted: number;
+  candidates: WarningShape[];
+}
+
+/** One band width, read as the ladder reads the chosen one. */
+interface WarningShape {
+  committed: number;
+  warning: number;
+  warningShare: number;
+  neverFelt: number;
+  neverCommitted: number;
 }
 
 /**
- * The turn from which every remaining sample is inside the margin, or null if the
+ * Candidate widths in nights, printed beside the chosen one on every run of the
+ * ladder so the width stays a measurement rather than a number somebody liked.
+ * A night is the unit because a night is what the band is measured against: one
+ * unattended crime costs every hero on the roster a point.
+ */
+const CANDIDATE_NIGHTS = [1, 2, 3, 4];
+
+/**
+ * The turn from which every remaining sample is inside the band, or null if the
  * run leaves it again before the end. Walking backwards from the last sample is
  * the only way to find it: the first touch is not the question.
  */
-function committedTurn(trace: TrustSample[]): number | null {
+function committedTurn(trace: TrustSample[], nights: number): number | null {
   for (let i = trace.length - 1; i >= 0; i -= 1) {
-    if (trace[i]!.margin >= TRUST_MARGIN) return trace[i + 1]?.turn ?? null;
+    const sample = trace[i]!;
+    if (sample.margin >= trustWarningBand(sample.roster, nights)) return trace[i + 1]?.turn ?? null;
   }
   return trace[0]?.turn ?? null;
+}
+
+function warningShape(traces: readonly TrustSample[][], nights: number): WarningShape {
+  let neverFelt = 0;
+  let neverCommitted = 0;
+  const committed: number[] = [];
+  const warning: number[] = [];
+  const warningShare: number[] = [];
+  for (const trace of traces) {
+    if (!trace.some((sample) => sample.margin < trustWarningBand(sample.roster, nights))) neverFelt += 1;
+    const committedAt = committedTurn(trace, nights);
+    if (committedAt === null) {
+      neverCommitted += 1;
+      continue;
+    }
+    const end = trace[trace.length - 1]!.turn;
+    committed.push(committedAt);
+    warning.push(end - committedAt);
+    warningShare.push((end - committedAt) / Math.max(1, end));
+  }
+  return {
+    committed: median(committed),
+    warning: median(warning),
+    warningShare: median(warningShare),
+    neverFelt,
+    neverCommitted,
+  };
 }
 
 function sweepCell(
@@ -894,38 +945,28 @@ function sweepCell(
   let survived = 0;
   let maxTurns = 0;
   let onTrust = 0;
-  let neverFelt = 0;
-  let neverCommitted = 0;
-  const committed: number[] = [];
-  const warning: number[] = [];
-  const warningShare: number[] = [];
+  const traces: TrustSample[][] = [];
   for (let seed = 1; seed <= 200; seed += 1) {
     const trace: TrustSample[] = [];
     const s = playRun(seed * 7919, 600, strategy, threat, trace);
+    traces.push(trace);
     total += s.turn;
     maxTurns = Math.max(maxTurns, s.turn);
     if (!s.isOver) survived += 1;
     if (s.overReason === TRUST_LOST) onTrust += 1;
-    if (!trace.some((sample) => sample.margin < TRUST_MARGIN)) neverFelt += 1;
-    const committedAt = committedTurn(trace);
-    if (committedAt === null) {
-      neverCommitted += 1;
-      continue;
-    }
-    committed.push(committedAt);
-    warning.push(s.turn - committedAt);
-    warningShare.push((s.turn - committedAt) / Math.max(1, s.turn));
   }
+  const chosen = warningShape(traces, WARNING_NIGHTS);
   return {
     avg: Math.round(total / 200),
     survived,
     maxTurns,
     onTrust,
-    committed: median(committed),
-    warning: median(warning),
-    warningShare: median(warningShare),
-    neverFelt,
-    neverCommitted,
+    committed: chosen.committed,
+    warning: chosen.warning,
+    warningShare: chosen.warningShare,
+    neverFelt: chosen.neverFelt,
+    neverCommitted: chosen.neverCommitted,
+    candidates: CANDIDATE_NIGHTS.map((nights) => warningShape(traces, nights)),
   };
 }
 
@@ -1014,6 +1055,57 @@ console.log('how hard is the city');
     console.log(
       `  info ${''.padEnd(14)} ${pad(f.neverFelt)}/200 never came near it, ${pad(f.neverCommitted)}/200 never committed to it`,
     );
+  }
+
+  // The width of the band, measured rather than asserted: the runs above re-read
+  // at every candidate width, in the units the rows above print them in. The
+  // trade is "warns on every city" against "the warning is not the state of the
+  // game", and this is the only table it can be made on. `*` is the width the
+  // game ships with.
+  console.log('  info candidate widths, focused play: commit turn / warning turns / share of run / never committed');
+  for (let c = 0; c < CANDIDATE_NIGHTS.length; c += 1) {
+    const nights = CANDIDATE_NIGHTS[c]!;
+    const width = `${nights} ${nights === 1 ? 'night' : 'nights'}${nights === WARNING_NIGHTS ? ' *' : ''}`;
+    const cells = rows.map((row) => {
+      const shape = row.focus.candidates[c]!;
+      return (
+        `${THREAT_DEFS[row.threat].label.padEnd(14)}` +
+        `${pad(shape.committed)}/${pad(shape.warning)}/${String(Math.round(shape.warningShare * 100)).padStart(3)}%/${String(shape.neverCommitted).padStart(3)}`
+      );
+    });
+    console.log(`  info ${width.padEnd(9)} ${cells.join(' ')}`);
+  }
+
+  // Both halves of the choice, in the units the table prints them in. A width
+  // that does not warn is the bug the band was widened for, and a width that
+  // leaves the meter amber for the whole run is the warning having become the
+  // state of the game instead of a change in it.
+  //
+  // Easy is left out of the first on purpose: its floor ends 3 of 200 focused
+  // runs, so there is nothing there to warn about, and pinning a warning to a
+  // clock that never fires would only pin down a number. Backbreaking is left
+  // out of the second because its meter *should* start amber — it forgives one
+  // point per guardian, the band is two nights of movement, and the floor is
+  // what ends 194 of its runs. It is the one city where the band is not the
+  // notice; it is the run.
+  for (const row of rows) {
+    // A quarter of the city's focused runs ending on the floor is the line
+    // between "the floor is this city's clock" and "the floor is an accident",
+    // and only a clock can be warned about. Easy fires on 3 of 200.
+    if (row.focus.onTrust >= 50) {
+      check(
+        `${onCity(row.threat)} is warned before the floor ends its runs`,
+        row.focus.warningShare >= 0.03,
+        `${Math.round(row.focus.warningShare * 100)}% of the run, ${turns(row.focus.warning)}`,
+      );
+    }
+    if (row.threat !== 'backbreaking') {
+      check(
+        `the warning stays a warning on ${onCity(row.threat)}`,
+        row.focus.warningShare < 0.5,
+        `${Math.round(row.focus.warningShare * 100)}% of the run spent inside the band`,
+      );
+    }
   }
 
   check(
@@ -1201,6 +1293,22 @@ console.log("the city's trust");
     'a bigger roster is a bigger promise',
     THREAT_LEVELS.every((t) => trustFloor(5, t) < trustFloor(3, t)),
     `on average: ${trustFloor(3, DEFAULT_THREAT)} -> ${trustFloor(5, DEFAULT_THREAT)}`,
+  );
+
+  // The band and the countdown beside it have to be the same sentence in
+  // different units, or the meter can promise two nights and mean one.
+  check(
+    'the warning band reads as nights of nobody answering',
+    unansweredNights(trustWarningBand(4), 4) === WARNING_NIGHTS,
+    `${trustWarningBand(4)} points on a roster of 4 is ${unansweredNights(trustWarningBand(4), 4)} nights`,
+  );
+  // The bug the band was widened for: one night of movement is what the band is
+  // measured against, so anything at or under it is crossed in the same turn it
+  // opens. The ladder measures what each width costs; this is the rule under it.
+  check(
+    'the warning band is wider than a night of movement, on every roster',
+    [1, 3, 4, 6].every((roster) => trustWarningBand(roster) > roster),
+    [1, 3, 4, 6].map((roster) => `${trustWarningBand(roster)}>${roster}`).join(', '),
   );
 
   // What actually empties the city is unattended work: the whole roster takes

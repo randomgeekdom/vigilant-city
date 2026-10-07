@@ -592,7 +592,7 @@ the floor at all. Median over the same 200 seeds:
 | City | The floor becomes the run's clock at | Warning | Of the run | Never came near it | Never committed |
 | --- | --- | --- | --- | --- | --- |
 | Easy | turn 223 (n=9) | 1 turn | 1% | 151/200 | 191/200 |
-| Average | turn 44 (n=135) | 2 turns | 4% | 1/200 | 65/200 |
+| Average | turn 44 (n=137) | 2 turns | 4% | 1/200 | 63/200 |
 | Difficult | turn 8 (n=181) | 4 turns | 29% | 1/200 | 19/200 |
 | Backbreaking | turn 0 (n=200) | 5 turns | 100% | 0/200 | 0/200 |
 
@@ -600,16 +600,53 @@ Every column is a median over the 200 seeds of that city, and the medians are ta
 commit at all — which is why Easy's `n=9` is printed. A run that never enters the margin has no
 committed turn, and Easy is mostly those.
 
-This is a real result and it is not flattering. **The warning is one to five turns on every city and the
-margin can be crossed inside a single turn** — the meter calls `slipping` within six points of the floor
-and one unattended night costs a whole roster, so on most runs that band is jumped rather than travelled
-through. The floor therefore reads as a cliff with a countdown attached rather than as a clock closing over
-a run, and on Easy it is not a mechanic at all for 191 runs out of 200: those runs are not nearly lost on
+This is a real result and it is not flattering. **The warning is one to five turns on every city**, and it
+was measured against a band of six points. A band in points is not a band in anything the player counts:
+one unattended crime costs every hero on the roster a point, so six points is a night and a half on a roster
+of four, and a single blown cover is five of them. On most runs the band was jumped rather than travelled
+through, so the floor read as a cliff with a countdown attached rather than as a clock closing over a run,
+and on Easy it is not a mechanic at all for 191 runs out of 200: those runs are not nearly lost on
 confidence, they are never asked the question.
+
+#### The band is two nights, and the other widths are priced
+
+`TRUST_MARGIN` was a constant; the band is now `WARNING_NIGHTS` nights of movement — a roster rather than a
+number, for the same reason the floor is, because what the band is measured against is one night and one
+night costs the whole roster. In those units the meter and the countdown beside it say the same thing: the
+city starts asking when two nights of nobody answering are left. Two nights is what ships, and it was
+chosen by re-reading the same 200 focused runs per city at every candidate width rather than by feel. Each
+cell is median warning turns, median share of the run, and runs that never committed — the three readings
+the table above prints, and the harness prints them on every run so the width cannot move without its price
+showing up beside it:
+
+| Band | Easy | Average | Difficult | Backbreaking |
+| --- | --- | --- | --- | --- |
+| 1 night | 0 turns, 0%, 196 never | 0 turns, 0%, 74 | 1 turn, 4%, 25 | 0 turns, 0%, 1 |
+| **2 nights (shipped)** | 1 turn, 1%, 191 | 2 turns, 4%, 63 | 4 turns, 29%, 19 | 5 turns, 100%, 0 |
+| 3 nights | 1 turn, 0%, 184 | 6 turns, 14%, 37 | 12 turns, 100%, 15 | 5 turns, 100%, 0 |
+| 4 nights | 1 turn, 0%, 144 | 18 turns, 100%, 19 | 14 turns, 100%, 10 | 5 turns, 100%, 0 |
+
+Both ends of the trade are asserted in those units, so the next person to move the width sees the shape
+before they see the result. **One night does not warn**: the median warning is zero turns on three of the
+four cities, because the band opens and the run ends in the same turn — that is the original complaint
+about the six-point band, arriving on schedule whatever the roster. **Four nights stops being a warning**:
+the median Average run is committed to the band from turn 0 and spends the whole run inside it, so `held`
+is a state that city never shows, and three does the same to Difficult while still buying Average a clock
+you can see (6 turns, 14% of the run). Two nights is the widest band on which no city but Backbreaking has
+a median run committed from turn 0. Backbreaking is the exception that reads right rather than a leak: it
+forgives one point per guardian, so the band is wider than its entire allowance, and on the one city where
+194 runs in 200 end on the floor an amber meter from the first night is the honest reading.
+
+The choice changes no run. Every mean run length, survivor count and terminal cause in §10.4 and in the
+sweep above is identical before and after, because the band reaches `trustVerdict` and the harness's
+reading of the meter and nothing else. The readings that moved are the ones taken against the band —
+whether a run ever came near it, how often it committed for good, and when — and only on Average: never
+committed went 65 → 63 for focused play, 76 → 67 for neglect and 94 → 92 for turning up without a target,
+and the other three cities did not move at all.
 
 What the ladder *does* do, and the playtest asserts in the two units that survive the runs getting
 shorter, is make the floor bite earlier and more often: `warningShare` rises 1% → 4% → 29% → 100% and
-`neverCommitted` falls 191 → 65 → 19 → 0. The floor column in the table above is real. It is simply a
+`neverCommitted` falls 191 → 63 → 19 → 0. The floor column in the table above is real. It is simply a
 sharper knife rather than a longer clock, and whether a sharper knife is the right way to scale the second
 half of a difficulty setting is the open question §11.1 ends on.
 
@@ -663,8 +700,9 @@ What the playtest found is that this is a **patience clock, not a skill clock**,
 interesting result. Trust at the end of a run sits in a narrow band (median −10 focused, −4 aimless, −8
 never intervening) however you played — the bleed is driven by how much damage the city has taken, not by
 how cleverly you took it. What skill buys is *time*: focused play does not commit to the floor until turn 44
-against 24 for doing nothing and 23 for turning up without a target, and it is the strategy least likely
-to commit at all (135/200 runs against 124/200 and 106/200). So the floor does not add a skill test, it
+against 25 for doing nothing and 24 for turning up without a target, and no strategy avoids it — 137 of 200
+focused runs commit to the floor, against 133 for doing nothing and 108 for turning up without a target.
+Skill moves the deadline; it does not buy immunity. So the floor does not add a skill test, it
 adds the sentence the whole design has been circling: **you can survive any single crisis, but you cannot
 keep doing this for two hundred nights.** Long runs now die of exhaustion rather than conquest, and 101/200
 focused runs end that way.
@@ -678,14 +716,17 @@ are what the floor *is*, and §10.5 shows what it does across the ladder.
 
 **The floor arrives as a cliff, not a clock, and that is now measured rather than suspected.** On all four
 cities a focused run gets between one and five turns of warning before the floor becomes its clock
-(§10.5), because the meter only calls `slipping` within six points and one unattended night costs a whole
-roster — so the warning band is narrower than a single turn of trust movement at the endgame and gets
-jumped rather than travelled through. On Easy 191/200 focused runs never commit to the floor at all. The
-floor as fitted is a terminal condition with a knife in it, not something a player watches closing over a
-run, and that is the honest summary of `trustFloorPerHero`: it is fitted to run lengths and to the
-strategy ordering, and neither of those can see this. Whether the band is the thing to widen is the open
-question; nothing here has been re-fitted to make the warning look longer, because a longer warning measured
-by the same three scripted strategies would be exactly the fit that produced the number in the first place.
+(§10.5). The band was widened for exactly this and the warning did not get longer, which is the finding:
+the shortness was never the band. It is two nights of movement now rather than six points — the same
+sentence as the countdown beside it, chosen from the widths priced in §10.5 — and on Easy 191/200 focused
+runs still never commit to the floor at all, because the floor ends 3 of that city's 200 runs and the ones
+that do commit are usually ending to conquest in the same turn. No display-only number can make that a
+clock. The floor as fitted is a terminal condition with a knife in it, not something a player watches
+closing over a run, and that is the honest summary of `trustFloorPerHero`: it is fitted to run lengths and
+to the strategy ordering, and neither of those can see this. Nothing here has been re-fitted to make the
+warning look longer — the floors still reach only the floor and the band still reaches only
+`trustVerdict` — because a longer warning measured by the same three scripted strategies would be exactly
+the fit that produced the number in the first place.
 
 The meter is built so that a human can answer that question rather than guess at it. The roster panel leads
 with the **distance to the floor** in points and in nights of nobody answering, and draws the run's margin

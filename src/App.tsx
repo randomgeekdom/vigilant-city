@@ -44,7 +44,7 @@ export function App() {
           try {
             const loaded = GameSession.fromSnapshot(data);
             sessionRef.current = loaded;
-            trustTrailRef.current = [{ turn: loaded.turn, margin: loaded.trustMargin }];
+            trustTrailRef.current = [{ turn: loaded.turn, margin: loaded.trustMargin, roster: loaded.allHeroes.length }];
             setHasSave(true);
           } catch {
             sessionRef.current = null;
@@ -67,7 +67,7 @@ export function App() {
   const commit = (fn: () => void) => {
     fn();
     const s = sessionRef.current;
-    if (s) trustTrailRef.current.push({ turn: s.turn, margin: s.trustMargin });
+    if (s) trustTrailRef.current.push({ turn: s.turn, margin: s.trustMargin, roster: s.allHeroes.length });
     force();
     setTimeout(persist, 60);
   };
@@ -81,7 +81,7 @@ export function App() {
   }) => {
     const { session } = GameSession.newGame(opts);
     sessionRef.current = session;
-    trustTrailRef.current = [{ turn: 0, margin: session.trustMargin }];
+    trustTrailRef.current = [{ turn: 0, margin: session.trustMargin, roster: session.allHeroes.length }];
     setHasSave(true);
     setTab('city');
     force();
@@ -97,7 +97,7 @@ export function App() {
       try {
         const loaded = GameSession.fromSnapshot(data);
         sessionRef.current = loaded;
-        trustTrailRef.current = [{ turn: loaded.turn, margin: loaded.trustMargin }];
+        trustTrailRef.current = [{ turn: loaded.turn, margin: loaded.trustMargin, roster: loaded.allHeroes.length }];
         setTab('city');
         force();
       } catch {

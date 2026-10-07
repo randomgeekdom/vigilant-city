@@ -19,8 +19,28 @@ import type { HeroData } from '../core/types';
  * that has stopped believing in the rest of them.
  */
 
-/** Above the floor by this much and the city is still with you. */
-export const TRUST_MARGIN = 6;
+/**
+ * How far ahead of the floor the city starts asking, in nights of nobody
+ * answering — the same unit as the countdown the meter prints beside it.
+ *
+ * It used to be a flat six points, which is not a unit the player has: an
+ * unattended crime costs every hero on the roster a point, so six points is a
+ * night and a half on a roster of four, and one blown cover moves five. Against
+ * the runs it produced one to five turns of warning on every city (§10.5) —
+ * jumped, not watched.
+ *
+ * Two nights is the width priced in §10.5 rather than picked by feel, and it is
+ * a roster rather than a constant for the same reason the floor is: what the
+ * band is measured against is the movement of one night, and one night costs
+ * the whole roster. Widening it cannot change a run — it reaches only
+ * `trustVerdict` and the harness that reads the meter — so it is chosen on
+ * whether it warns, not on whether it wins.
+ */
+export const WARNING_NIGHTS = 2;
+
+export function trustWarningBand(rosterSize: number, nights: number = WARNING_NIGHTS): number {
+  return nights * Math.max(1, rosterSize);
+}
 
 /** The one way to lose the city that is not a villain taking it. */
 export const TRUST_LOST =
@@ -50,9 +70,9 @@ export function trustFloor(rosterSize: number, threat: ThreatLevel): number {
 
 export type TrustVerdict = 'held' | 'slipping' | 'failing';
 
-export function trustVerdict(trust: number, floor: number): TrustVerdict {
+export function trustVerdict(trust: number, floor: number, rosterSize: number): TrustVerdict {
   if (trust < floor) return 'failing';
-  if (trust < floor + TRUST_MARGIN) return 'slipping';
+  if (trust < floor + trustWarningBand(rosterSize)) return 'slipping';
   return 'held';
 }
 
@@ -88,10 +108,16 @@ export function unansweredNights(margin: number, rosterSize: number): number {
   return Math.floor(margin / Math.max(1, rosterSize));
 }
 
-/** One turn's reading of the distance to the floor, which is what the meter draws. */
+/**
+ * One turn's reading of the distance to the floor, which is what the meter
+ * draws. The roster rides along because the warning band is a roster: a sample
+ * that cannot say how wide the band was at the time cannot be re-read against a
+ * different width, and re-reading is how the width gets chosen.
+ */
 export interface TrustSample {
   turn: number;
   margin: number;
+  roster: number;
 }
 
 /**

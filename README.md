@@ -51,7 +51,9 @@ up, and under **−3 per guardian on the roster** the city stops believing in it
 ends. Nothing new feeds it — it moves on work answered, covers blown, and crimes nobody showed up for —
 so it is a clock you keep honest by answering calls, not a second resource to manage. The Heroes panel
 reads it as a distance rather than a score: how far above the floor the city is, how many nights of nobody
-answering that is worth, and the whole run's margin drawn against the floor line.
+answering that is worth, and the whole run's margin drawn against the floor line. That reading goes from
+*held* to *slipping* when two nights of nobody answering are left before the floor, so the warning and the
+countdown beside it are the same number in different units.
 
 You can also **hunt** someone directly, any time, even when they are not committing a crime. It costs a
 full turn and knocks back 1.4× — it took the whole night. Without it, a villain closest to winning would
