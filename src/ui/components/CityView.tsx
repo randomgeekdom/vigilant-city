@@ -31,7 +31,6 @@ export function CityView({ session, onResolve, onHunt, onPatrol }: Props) {
   const heroPowerSet = hero?.powers[0]?.powerSet;
   const known = (incident: IncidentData, approach: Approach) =>
     hero?.manifestations.some((m) => m.approach === approach && m.powerSet === heroPowerSet && m.difficulty === incident.difficulty) ?? false;
-  const behind = (incident: IncidentData) => session.villains.find((v) => v.id === incident.villainId);
 
   const resolve = (a: Approach, b: Approach) => {
     if (!target) return;
@@ -127,8 +126,6 @@ export function CityView({ session, onResolve, onHunt, onPatrol }: Props) {
           .map((incident) => {
             const def = INCIDENT_TYPE_DEFS[incident.type];
             const urgent = incident.timeToResolve <= 1;
-            const villain = behind(incident);
-            const tier = villain ? tierForInfluence(villain.influence) : null;
             return (
               <button
                 key={incident.id}
@@ -141,15 +138,6 @@ export function CityView({ session, onResolve, onHunt, onPatrol }: Props) {
                   <span className={`timer${urgent ? ' urgent' : ''}`}>{incident.timeToResolve}</span>
                 </div>
                 <div className="incident-where">{DISTRICT_LABELS[incident.district]}</div>
-                {villain && tier && (
-                  <div className={`incident-behind t${tier.tier}`}>
-                    {villain.alias}
-                    <span className="infl">
-                      {villain.influence}
-                      <em>{tier.label}</em>
-                    </span>
-                  </div>
-                )}
                 <div className="incident-diff">
                   {DIFFICULTY_DEFS[incident.difficulty].label} &middot; needs {DIFFICULTY_DEFS[incident.difficulty].roll}
                 </div>

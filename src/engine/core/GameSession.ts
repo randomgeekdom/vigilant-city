@@ -112,6 +112,8 @@ export class GameSession {
   private readonly state: SessionState;
   private readonly seedValue: number;
   private idCounter: number;
+  /** Villains already paid the cost of inattention this turn, so several resolutions do not stack it. */
+  private readonly alreadyDiverted = new Set<string>();
 
   private constructor(state: SessionState, seed: number, rngState: number, idCounter: number) {
     this.state = state;
@@ -255,6 +257,7 @@ export class GameSession {
   resolvePlayerIncident(incidentId: string, first: Approach, second: Approach): ResolutionReport {
     if (this.state.over) throw new Error('run is over');
     if (first === second) throw new Error('must choose two different approaches');
+    this.alreadyDiverted.clear();
 
     const incident = this.state.incidents.find((i) => i.id === incidentId);
     if (!incident) throw new Error(`no open incident ${incidentId}`);
@@ -302,6 +305,7 @@ export class GameSession {
    */
   patrol(): void {
     if (this.state.over) return;
+    this.alreadyDiverted.clear();
     const player = this.playerHero;
     if (player) this.collateral(player.id);
     this.state.turn += 1;
@@ -332,6 +336,9 @@ export class GameSession {
     this.returnContainedBosses();
     for (const villain of this.state.villains) {
       if (villain.status !== 'active') continue;
+      // A villain is tied to one job at a time; someone already running an
+      // incident does not get a second one hung on them.
+      if (this.hasOpenWork(villain.id)) continue;
       const tier = tierForInfluence(villain.influence);
       if (tier.tier === 1) continue;
       if (this.rng.chance(bossSeedChance(villain))) {
@@ -388,6 +395,12 @@ export class GameSession {
     const growth = divertedGrowth(this.state.threat);
     for (const villain of this.state.villains) {
       if (villain.status !== 'active' || villain.id === fromVillainId) continue;
+      // A turn pays for inattention once per villain, not once per incident
+      // resolved. With one culprit per incident the board can hold several
+      // villains at once, and letting every collateral resolution pay again
+      // multiplied the documented `growth × (N − 1)` into a cliff.
+      if (this.alreadyDiverted.has(villain.id)) continue;
+      this.alreadyDiverted.add(villain.id);
       this.raiseInfluence(villain, growth + bossGrowth(villain));
     }
   }
@@ -437,6 +450,7 @@ export class GameSession {
   huntVillain(villainId: string, first: Approach, second: Approach): ResolutionReport {
     if (this.state.over) throw new Error('run is over');
     if (first === second) throw new Error('must choose two different approaches');
+    this.alreadyDiverted.clear();
     const villain = this.requireVillain(villainId);
     if (villain.status !== 'active') throw new Error(`${villain.alias} is no longer working`);
     const player = this.playerHero;
@@ -851,14 +865,16 @@ export class GameSession {
 
   /**
    * The city only generates work it has a culprit for, so a villain is created
-   * when there is nobody left to blame. Backed villains appear from the start,
-   * which is what gives organisations a presence on the board.
+   * when there is nobody free to blame. A villain already running a job is never
+   * reused: one open incident per person, so the board reads as separate people.
+   * Backed villains appear from the start, which is what gives organisations a
+   * presence on the board.
    */
   private spawnIncidents(min: number, max: number): void {
     const count = this.rng.int(min, max);
     for (let i = 0; i < count; i += 1) {
-      const active = this.state.villains.filter((v) => v.status === 'active');
-      let villain = active.length > 0 ? this.rng.pick(active) : undefined;
+      const free = this.state.villains.filter((v) => v.status === 'active' && !this.hasOpenWork(v.id));
+      let villain = free.length > 0 ? this.rng.pick(free) : undefined;
       if (!villain) {
         const org = this.state.organizations.length > 0 ? this.rng.pick(this.state.organizations) : null;
         villain = this.characters.createVillain(this.rng, org?.ideology ?? null);
@@ -866,6 +882,10 @@ export class GameSession {
       }
       this.state.incidents.push(this.incidentFactory.createIncident(villain.id));
     }
+  }
+
+  private hasOpenWork(villainId: string): boolean {
+    return this.state.incidents.some((i) => i.villainId === villainId);
   }
 
   private checkTerminalState(): void {

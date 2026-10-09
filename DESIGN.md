@@ -229,6 +229,14 @@ blown. Take the mask off on purpose and you are safe, and somewhat distrusted, f
 Every incident has a **culprit**. Villains are not flavour attached to a district; they are the reason
 the city is losing, and they are the second board.
 
+Two rules keep the second board a *second* board rather than a second face on the first one. **One job
+per villain:** a villain holds at most one open incident, and when there is work to place the city finds
+somebody without any before it invents somebody new. Reusing a culprit made a single person appear to be
+committing several crimes at once, and the board stopped reading as work with a name behind it. **The
+culprit is not shown.** The incident card carries the type, the district, the difficulty and the modifiers
+and nothing else; which villain is behind which job is the player's to work out or ignore. A name is
+earned by the influence it runs up (§10.3), not by being printed on the crime.
+
 Each villain carries **influence** (0–100) and, sometimes, an external **backer**. Influence is tiered:
 
 | Tier | Influence | Meaning |
@@ -248,7 +256,8 @@ There is no passive growth and no rising tide. The city is not decaying. The pre
   and 35 is the base the rule is written against. Backing is a deduction, not a bonus: they are worth
   more, so the same attention buys less of them.
 - Fail against them → they gain **10**. Failure is publicity.
-- **Every *other* active villain gains 5.** This is not a background decay; it is the whole game. The
+- **Every *other* active villain gains 5**, and a given villain gains it at most once per turn no matter
+  how many times the turn touches the board. This is not a background decay; it is the whole game. The
   5 is the price of inattention, and it is the one number on this list the player gets to choose
   (§10.5) — but its *cause* is not negotiable, because it is always your turn spent elsewhere.
 
@@ -318,12 +327,14 @@ and getting them is the only answer** rather than an optional extra — and the 
 that, as expected progress per attempt, because a miss hands influence straight back:
 
 ```
-mopping up:   0.5 x -16.5  + 0.5 x +10   =  -3.3 per night
-hunting:      0.5 x -37.8  + 0.5 x +10   = -13.9 per night
+mopping up:   0.5 x -18.0  + 0.5 x +10   =  -4.0 per night
+hunting:      0.5 x -35.7  + 0.5 x +10   = -12.8 per night
 ```
 
-Those are the harness's own numbers for the boss it finds first — Invisibility, at ×0.55 and ×0.9 — and
-the playtest prints them on every run precisely so this example cannot quietly go stale.
+Those are the harness's own numbers for the boss it finds first — Shapeshifting, at ×0.6 and ×0.85 — and
+the playtest prints them on every run precisely so this example cannot quietly go stale. The check itself
+sweeps every power on the list rather than the one seed that found a boss first, because a claim about
+bosses is not a claim about whichever of them turned up first.
 
 Hunting still lands hard on a boss, because it has to. A resistance that applied at full strength to
 hunts as well would make a boss a wall rather than a threat, and the sweep showed exactly that: focused
@@ -369,10 +380,12 @@ It also cuts both ways honestly, which is why it widens the gap instead of endin
 work on the board is more work a focused player can get to.** Aiming at the worst villain now finds their
 crime on the board more often, which is exactly the advantage the design is about.
 
-**The effect is real and small.** The Average city reads 31 / 43 / **105** against 32 / 42 / **102** before,
-so the focused-to-aimless gap goes 60 turns to 62 — about a tenth of the 21 turns it would take to restore
-the pre-boss figure, and every other candidate measured moved it less. What the number does *not* do is
-change the story, and the next section is why that story was misread in the first place.
+**The effect is real and small.** When the bill was added the Average city read 31 / 43 / **105** against
+32 / 42 / **102** before it, so the focused-to-aimless gap went 60 turns to 62 — about a tenth of the 21
+turns it would have taken to restore the pre-boss figure, and every other candidate measured moved it less.
+What the number did *not* do is change the story, and the next section is why that story was misread in the
+first place. (The later one-job rule moved all three readings again, and §10.4 takes that up where the
+strategies are compared.)
 
 #### The end is a fork
 
@@ -402,8 +415,8 @@ the roster cannot afford the other one. It is not a way to win the same fight tw
 not because anybody picked it, but because correcting the knockback sign (see the note at the end of
 `TODO.md`) quietly moved the hunt down underneath it, leaving 40 exactly one night clear of zero at the top
 of the range. 45 is the smallest round figure that survives the worst case, so no single night can finish a
-returned boss whatever they are carrying, and it is still ten under the threshold. The playtest contains 122
-bosses across 96 seeds, every one of them back at 45, and asserts the ceiling directly.
+returned boss whatever they are carrying, and it is still ten under the threshold. The playtest contains 96
+containments across 96 seeds, every one of them back at 45, and asserts the ceiling directly.
 
 **The escalation has teeth now, and the teeth are in both multipliers.** `bossResistance` used to read only
 `villain.boss` — the *first* power — so a boss holding six took exactly the same effort to move as one
@@ -416,11 +429,16 @@ more influence than it takes off. The hunt step is gentle because hunting is the
 escalation and a boss has to stay a threat rather than become a wall. Walked across a real boss's whole list:
 
 ```
-escapes        0      1      2      3      4      5      6
-mopping up  -4.0   -3.1   -2.3   -1.6   -0.9   -0.3   +0.2
-hunting     -12.8  -12.3  -11.8  -11.3  -10.8  -10.3   -9.9
-growth       +1     +2     +3     +3     +3     +3     +3
+escapes        0      1      2      3      4      5
+mopping up  -3.3   -2.4   -1.7   -1.0   -0.4   +0.1
+hunting     -13.9  -13.3  -12.8  -12.2  -11.7  -11.2
+growth       +1     +2     +3     +3     +3     +3
 ```
+
+The row is a real boss the neglect sweep produced — Invisibility, at ×0.55 and ×0.9 at zero escapes —
+walked one power at a time until the list runs out. Which power the sweep happens to grow first moves
+with the rng, so the table is printed on every run rather than remembered; only the shape is fixed, and
+the shape is what the design rests on.
 
 Both columns climb towards zero and only one of them crosses it, which is the mechanic restated as
 arithmetic. Growth is a rate and stays capped at +3; resistance is a multiplier, so the escalation does not
@@ -434,15 +452,15 @@ the city losing faith rather than on a villain taking it (§11.1):
 
 | Strategy | Mean run | Survived | Ended on trust |
 | --- | --- | --- | --- |
-| Never intervene, just patrol | 31 turns | 0/200 | 80 |
-| Attend a random incident | 43 turns | 0/200 | 59 |
-| **Focus on whoever is closest to winning** | **105 turns** | **1/200** | 101 |
+| Never intervene, just patrol | 16 turns | 0/200 | 51 |
+| Attend a random incident | 32 turns | 0/200 | 42 |
+| **Focus on whoever is closest to winning** | **102 turns** | **1/200** | 75 |
 
 Two results worth keeping:
 
-1. **Focusing is the only route to survival, and it is not close.** 105 vs 43 is the whole design
+1. **Focusing is the only route to survival, and it is not close.** 102 vs 32 is the whole design
    functioning as intended.
-2. **Aimless intervention is barely better than doing nothing** (43 vs 31). Turning up and reacting is
+2. **Aimless intervention is barely better than doing nothing** (32 vs 16). Turning up and reacting is
    not a strategy here: you feed every villain you were not aiming at and you take the cascading
    damage on your own hero. The game punishes heroics that are not directed.
 
@@ -450,7 +468,7 @@ Two results worth keeping:
    it is measured as a turn count, so it holds wherever conquest is what ends the run. Where the trust
    clock is what ends it, merely turning up does buy time, because attending any incident at all stops
    it expiring and an expiring crime is what spends the city's patience: on a Difficult city, where
-   163/200 focused runs die on trust, aimless play runs 30 turns against 20 for doing nothing. What it
+   149/200 focused runs die on trust, aimless play runs 19 turns against 11 for doing nothing. What it
    never buys anywhere is a run it survives — 0/200 on all four cities, which is what the harness now
    asserts instead of a turn band, since ten turns means something very different on a run of 20 than on
    a run of 220.
@@ -463,28 +481,32 @@ Two results worth keeping:
 
 Focused play still loses 199/200, so the run is not a formality — but it is winnable by playing well,
 which is the correct shape. Note that focusing buys *time*, not safety: it is the only strategy that
-survives long enough to run into the trust floor, and 101 of its 199 losses are there rather than in a
+survives long enough to run into the trust floor, and 75 of its 199 losses are there rather than in a
 fight with a villain.
 
 **Bosses made the whole city harder. They did not close the gap between the strategies, and the spread in
 turns is what made it look like they did.** Before bosses the same sweep read 54 / 59 / 142; after them,
 32 / 42 / 102. Every strategy got about 28% shorter, which is the point — neglect produces bosses and
-aimless play feeds them. What the gap does *not* do is move, and the way to see that is to stop counting
-turns:
+aimless play feeds them. Cutting the run short did not by itself move the gap between the strategies,
+though: the way to see what bosses did is to stop counting turns:
 
 | | Never intervene | Attend randomly | Focus | Focus ÷ aimless | Focus ÷ never |
 | --- | --- | --- | --- | --- | --- |
 | Before bosses | 54 | 59 | 142 | **2.41×** | 2.63× |
 | After bosses | 32 | 42 | 102 | **2.43×** | 3.19× |
 | After the bill (§10.3) | 31 | 43 | 105 | **2.44×** | 3.39× |
+| After one job per villain (§10) | 16 | 32 | 102 | **3.19×** | 6.38× |
 
-The turn-denominated spread fell from 83 to 60 to 62, and the ratio moved from 2.41× to 2.43× to 2.44×.
-A run that is a third shorter has a third narrower spread, so "the spread narrowed" was arithmetic about
-run length rather than evidence about the mechanic — and focus's advantage over doing *nothing* actually
-widened throughout, from 2.63× to 3.39×. Read that way the mechanic did what it was built to do: punish
-the player who ignores people more than the player who goes and gets them. The bill in §10.3 pushes the
-same way for a tenth of a turn; the honest conclusion is that this gap is dominated by whether villains
-leave the board at all, and the strategies differ there by 187 boss kills to 4.
+The turn-denominated spread fell from 83 to 60 to 62 and then rose to 70, and the ratios sit at 2.43×,
+2.44× and 3.19× against aimless play and 3.19×, 3.39× and 6.38× against doing nothing. A run that is a
+third shorter has a third narrower spread, so "the spread narrowed" was arithmetic about run length rather
+than evidence about the mechanic; the ratios are the honest reading, and the first two changes left them
+where they were. The third is the one-job rule, and it is the one that *did* widen the gap: tying each
+villain to a single incident puts more people on the second board, so every strategy that ignores somebody
+now feeds more of them, and aimless and neglect play pay for it while focus picks them off one at a time.
+Read that way the mechanic does what it was built to do: punish the player who ignores people more than
+the player who goes and gets them. The honest conclusion is still that this gap is dominated by whether
+villains leave the board at all, and that is the strategy difference the ratios are measuring.
 
 **Giving escalation teeth moved that gap the wrong way, and it is worth being precise about why.**
 The two halves of the boss fork are priced separately and they came apart cleanly. Making a returned boss
@@ -563,22 +585,22 @@ The same three strategies, 200 seeds each, on each city:
 
 | City | Never intervene | Attend randomly | Focus | Focus survived | Focus ended on trust |
 | --- | --- | --- | --- | --- | --- |
-| Easy | 50 | 59 | **215** | 13/200 | 3 |
-| Average | 31 | 43 | **105** | 1/200 | 101 |
-| Difficult | 20 | 30 | **44** | 0/200 | 163 |
-| Backbreaking | 8 | 8 | **10** | 0/200 | 194 |
+| Easy | 21 | 45 | **193** | 7/200 | 2 |
+| Average | 16 | 32 | **102** | 1/200 | 75 |
+| Difficult | 11 | 19 | **42** | 2/200 | 149 |
+| Backbreaking | 5 | 7 | **9** | 0/200 | 187 |
 
 Three things worth keeping:
 
-1. **The setting is genuinely a setting, and it does not break the game.** Focused play is 215 / 105 /
-   44 / 10 down the ladder, and focusing still beats both aimless play and doing nothing on *every*
+1. **The setting is genuinely a setting, and it does not break the game.** Focused play is 193 / 102 /
+   42 / 9 down the ladder, and focusing still beats both aimless play and doing nothing on *every*
    city. A knob that left the strategy ordering intact while moving run length by a factor of twenty is
    a difficulty setting; one that only reordered the strategies would have been a different game.
-2. **The two clocks swap ends.** An Easy run is almost never lost to lost confidence — only 3/200 end on
-   trust, so the floor barely fires. A Backbreaking run almost always is: 194/200, because a floor of
+2. **The two clocks swap ends.** An Easy run is almost never lost to lost confidence — only 2/200 end on
+   trust, so the floor barely fires. A Backbreaking run almost always is: 187/200, because a floor of
    −1 per guardian is three bad nights from the end. Difficulty does not just shorten runs, it changes
    *how they fail*, which is the more interesting thing for the player to be choosing between.
-3. **Easy is winnable and still not a formality.** 13/200 focused runs survive the 600-turn cap, against
+3. **Easy is winnable and still not a formality.** 7/200 focused runs survive the 600-turn cap, against
    1/200 on Average, and the harness is three lines of scripted heuristics rather than a player.
 
 #### When the floor actually pulls
@@ -591,22 +613,22 @@ the floor at all. Median over the same 200 seeds:
 
 | City | The floor becomes the run's clock at | Warning | Of the run | Never came near it | Never committed |
 | --- | --- | --- | --- | --- | --- |
-| Easy | turn 223 (n=9) | 1 turn | 1% | 151/200 | 191/200 |
-| Average | turn 44 (n=137) | 2 turns | 4% | 1/200 | 63/200 |
-| Difficult | turn 8 (n=181) | 4 turns | 29% | 1/200 | 19/200 |
-| Backbreaking | turn 0 (n=200) | 5 turns | 100% | 0/200 | 0/200 |
+| Easy | turn 282 (n=7) | 0 turns | 0% | 162/200 | 193/200 |
+| Average | turn 30 (n=117) | 2 turns | 6% | 2/200 | 83/200 |
+| Difficult | turn 5 (n=167) | 4 turns | 31% | 0/200 | 33/200 |
+| Backbreaking | turn 0 (n=194) | 3 turns | 100% | 0/200 | 6/200 |
 
 Every column is a median over the 200 seeds of that city, and the medians are taken over the runs that
-commit at all — which is why Easy's `n=9` is printed. A run that never enters the margin has no
+commit at all — which is why Easy's `n=7` is printed. A run that never enters the margin has no
 committed turn, and Easy is mostly those.
 
-This is a real result and it is not flattering. **The warning is one to five turns on every city**, and it
-was measured against a band of six points. A band in points is not a band in anything the player counts:
-one unattended crime costs every hero on the roster a point, so six points is a night and a half on a roster
-of four, and a single blown cover is five of them. On most runs the band was jumped rather than travelled
-through, so the floor read as a cliff with a countdown attached rather than as a clock closing over a run,
-and on Easy it is not a mechanic at all for 191 runs out of 200: those runs are not nearly lost on
-confidence, they are never asked the question.
+This is a real result and it is not flattering. **The warning is nought to four turns across the cities**,
+and it was measured against a band of six points. A band in points is not a band in anything the player
+counts: one unattended crime costs every hero on the roster a point, so six points is a night and a half on
+a roster of four, and a single blown cover is five of them. On most runs the band was jumped rather than
+travelled through, so the floor read as a cliff with a countdown attached rather than as a clock closing
+over a run, and on Easy it is not a mechanic at all for 193 runs out of 200: those runs are not nearly lost
+on confidence, they are never asked the question.
 
 #### The band is two nights, and the other widths are priced
 
@@ -621,32 +643,33 @@ showing up beside it:
 
 | Band | Easy | Average | Difficult | Backbreaking |
 | --- | --- | --- | --- | --- |
-| 1 night | 0 turns, 0%, 196 never | 0 turns, 0%, 74 | 1 turn, 4%, 25 | 0 turns, 0%, 1 |
-| **2 nights (shipped)** | 1 turn, 1%, 191 | 2 turns, 4%, 63 | 4 turns, 29%, 19 | 5 turns, 100%, 0 |
-| 3 nights | 1 turn, 0%, 184 | 6 turns, 14%, 37 | 12 turns, 100%, 15 | 5 turns, 100%, 0 |
-| 4 nights | 1 turn, 0%, 144 | 18 turns, 100%, 19 | 14 turns, 100%, 10 | 5 turns, 100%, 0 |
+| 1 night | 0 turns, 0%, 197 never | 0 turns, 0%, 106 | 0 turns, 0%, 44 | 0 turns, 0%, 11 |
+| **2 nights (shipped)** | 0 turns, 0%, 193 | 2 turns, 6%, 83 | 4 turns, 31%, 33 | 3 turns, 100%, 6 |
+| 3 nights | 0 turns, 0%, 185 | 4 turns, 10%, 57 | 9 turns, 100%, 22 | 4 turns, 100%, 4 |
+| 4 nights | 1 turn, 0%, 161 | 14 turns, 64%, 29 | 11 turns, 100%, 14 | 4 turns, 100%, 3 |
 
 Both ends of the trade are asserted in those units, so the next person to move the width sees the shape
-before they see the result. **One night does not warn**: the median warning is zero turns on three of the
-four cities, because the band opens and the run ends in the same turn — that is the original complaint
-about the six-point band, arriving on schedule whatever the roster. **Four nights stops being a warning**:
-the median Average run is committed to the band from turn 0 and spends the whole run inside it, so `held`
-is a state that city never shows, and three does the same to Difficult while still buying Average a clock
-you can see (6 turns, 14% of the run). Two nights is the widest band on which no city but Backbreaking has
-a median run committed from turn 0. Backbreaking is the exception that reads right rather than a leak: it
-forgives one point per guardian, so the band is wider than its entire allowance, and on the one city where
-194 runs in 200 end on the floor an amber meter from the first night is the honest reading.
+before they see the result. **One night does not warn**: the median warning is zero turns on every city,
+because the band opens and the run ends in the same turn — that is the original complaint about the
+six-point band, arriving on schedule whatever the roster. **Four nights stops being a warning**: the median
+Average run spends 64% of itself inside the band and Difficult and Backbreaking are committed from turn 0
+outright, so `held` is a state those cities never show; three already does it to Difficult (100% of the
+run) while still leaving Average a clock you can see (4 turns, 10%). Two nights is the widest band on which
+no city but Backbreaking has a median run committed from turn 0. Backbreaking is the exception that reads
+right rather than a leak: it forgives one point per guardian, so the band is wider than its entire
+allowance, and on the one city where 187 runs in 200 end on the floor an amber meter from the first night
+is the honest reading.
 
 The choice changes no run. Every mean run length, survivor count and terminal cause in §10.4 and in the
-sweep above is identical before and after, because the band reaches `trustVerdict` and the harness's
-reading of the meter and nothing else. The readings that moved are the ones taken against the band —
-whether a run ever came near it, how often it committed for good, and when — and only on Average: never
-committed went 65 → 63 for focused play, 76 → 67 for neglect and 94 → 92 for turning up without a target,
-and the other three cities did not move at all.
+sweep above is identical whichever band is drawn, because the band reaches `trustVerdict` and the harness's
+reading of the meter and nothing else. The readings that move are the ones taken against the band — whether
+a run ever came near it, how often it committed for good, and when. Widening from one night to two cuts
+the focused runs that never commit on Average from 106 to 83, and the narrower and wider bands are priced
+in the table above rather than chosen by feel.
 
 What the ladder *does* do, and the playtest asserts in the two units that survive the runs getting
-shorter, is make the floor bite earlier and more often: `warningShare` rises 1% → 4% → 29% → 100% and
-`neverCommitted` falls 191 → 63 → 19 → 0. The floor column in the table above is real. It is simply a
+shorter, is make the floor bite earlier and more often: `warningShare` rises 0% → 6% → 31% → 100% and
+`neverCommitted` falls 193 → 83 → 33 → 6. The floor column in the table above is real. It is simply a
 sharper knife rather than a longer clock, and whether a sharper knife is the right way to scale the second
 half of a difficulty setting is the open question §11.1 ends on.
 
@@ -655,10 +678,11 @@ run length cannot tell you this — so re-fitting them to *these* numbers would 
 different hat. A human has still not played an Easy and a Backbreaking run with the meter in front of
 them; that is what the TODO carries.
 
-Easy has been winnable at a price twice now. Pricing the containment branch deliberately (§10.3) took it
-from 19 survivors to 9, and the bill for leaving a boss alone (§10.3) has put four of them back — which
-is the shape you want from a mechanic that punishes neglect, since the attentive player is the one who
-pays it. The ordering has not moved and the ladder still spans a factor of twenty from end to end.
+Easy has been winnable at a price every time the villain economy changed. Pricing the containment branch
+deliberately (§10.3), the bill for leaving a boss alone (§10.3) and tying each villain to one job (§10)
+each moved the survivor count — it sits at 7/200 now — which is the shape you want from a mechanic that
+punishes neglect, since the attentive player is the one who pays it. The ordering has not moved and the
+ladder still spans a factor of twenty from end to end (193 against 9).
 
 Average is the identity: it is the run the rest of this document was measured against, it is what a run
 gets if the caller does not name a city, and it is the row the difficulty knob was fitted around.
@@ -699,27 +723,27 @@ difficulty setting rather than being global — see §10.5 for the table, includ
 What the playtest found is that this is a **patience clock, not a skill clock**, and that is the more
 interesting result. Trust at the end of a run sits in a narrow band (median −10 focused, −4 aimless, −8
 never intervening) however you played — the bleed is driven by how much damage the city has taken, not by
-how cleverly you took it. What skill buys is *time*: focused play does not commit to the floor until turn 44
-against 25 for doing nothing and 24 for turning up without a target, and no strategy avoids it — 137 of 200
-focused runs commit to the floor, against 133 for doing nothing and 108 for turning up without a target.
+how cleverly you took it. What skill buys is *time*: focused play does not commit to the floor until turn 30
+against 14 for doing nothing and 21 for turning up without a target, and no strategy avoids it — 117 of 200
+focused runs commit to the floor, against 111 for doing nothing and 111 for turning up without a target.
 Skill moves the deadline; it does not buy immunity. So the floor does not add a skill test, it
 adds the sentence the whole design has been circling: **you can survive any single crisis, but you cannot
-keep doing this for two hundred nights.** Long runs now die of exhaustion rather than conquest, and 101/200
+keep doing this for two hundred nights.** Long runs now die of exhaustion rather than conquest, and 75/200
 focused runs end that way.
 
 What skill does *not* buy is notice. The median focused run gets the same two turns of warning as an
 aimless one, and so does every other city — what attention buys is how many nights pass before the floor is
 the run's clock at all, not how long you get to watch it coming. Read as a share of the run the median
-focused run spends 4% of itself inside the margin, and on Average that is the entire difference between
+focused run spends 6% of itself inside the margin, and on Average that is the entire difference between
 winning and being stood down. Both numbers are in the harness because neither one is a balance knob: they
 are what the floor *is*, and §10.5 shows what it does across the ladder.
 
 **The floor arrives as a cliff, not a clock, and that is now measured rather than suspected.** On all four
-cities a focused run gets between one and five turns of warning before the floor becomes its clock
+cities a focused run gets nought to four turns of warning before the floor becomes its clock
 (§10.5). The band was widened for exactly this and the warning did not get longer, which is the finding:
 the shortness was never the band. It is two nights of movement now rather than six points — the same
-sentence as the countdown beside it, chosen from the widths priced in §10.5 — and on Easy 191/200 focused
-runs still never commit to the floor at all, because the floor ends 3 of that city's 200 runs and the ones
+sentence as the countdown beside it, chosen from the widths priced in §10.5 — and on Easy 193/200 focused
+runs still never commit to the floor at all, because the floor ends 2 of that city's 200 runs and the ones
 that do commit are usually ending to conquest in the same turn. No display-only number can make that a
 clock. The floor as fitted is a terminal condition with a knife in it, not something a player watches
 closing over a run, and that is the honest summary of `trustFloorPerHero`: it is fitted to run lengths and

@@ -40,7 +40,10 @@ The city is not decaying and there is no rising tide. Every incident has a **cul
 carries **influence** from 0 to 100. Every turn your attention lands on exactly one of them:
 
 - The villain you attend loses **30** influence — 35, less 5 for the organisation standing behind them.
-- **Every other active villain gains 5.** Failure gains them 10 instead.
+- **Every other active villain gains 5**, at most once each per turn. Failure gains them 10 instead.
+
+A villain holds at most one open incident, and the incident card does not name the culprit: the work and
+the name behind it are the two boards, and matching them is yours to do or ignore.
 
 That arithmetic sets the board's equilibrium at about seven simultaneous villains; eight is the cliff. New
 ones keep arriving, so holding the line means periodically deciding who to finish off — which is itself
@@ -66,10 +69,10 @@ inattention and how much debt the city will carry — and nothing else:
 
 | | Unattended growth | Trust floor per guardian | Focus strategy, mean run |
 | --- | --- | --- | --- |
-| Easy | +4 | −6 | 215 turns, 13/200 survived |
-| Average | +5 | −3 | 105 turns, 1/200 survived |
-| Difficult | +6 | −2 | 44 turns, 0/200 survived |
-| Backbreaking | +8 | −1 | 10 turns, 0/200 survived |
+| Easy | +4 | −6 | 193 turns, 7/200 survived |
+| Average | +5 | −3 | 102 turns, 1/200 survived |
+| Difficult | +6 | −2 | 42 turns, 2/200 survived |
+| Backbreaking | +8 | −1 | 9 turns, 0/200 survived |
 
 A harder city is **not** a city that decays — there is still no tide, and every point a villain gains is
 a point they gained because you were somewhere else. It also does not make the individual incidents
@@ -113,8 +116,8 @@ When one reaches zero you are choosing between the two available answers, and bo
 Permanent and expensive, or cheaper and repeating.
 
 The playtest measures three strategies over 200 seeds on the Average city: never intervening averages
-31 turns, attending random incidents averages 43, and **focusing on whoever is closest to winning
-averages 105 with 1 survivor**. Aimless heroics is barely better than doing nothing.
+16 turns, attending random incidents averages 32, and **focusing on whoever is closest to winning
+averages 102 with 1 survivor**. Aimless heroics is barely better than doing nothing.
 
 ## Systems
 
