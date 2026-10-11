@@ -19,7 +19,9 @@ prose quotes:
   makes and so shifts every roll after a name. The §10.4/§10.5 sweep is a fixed 200-seed sweep, and it
   moved: the harness now prints Easy focus **189 turns / 15 survivors** against **193 / 7** in §10.5,
   Average **102 / 3** against **102 / 1**, Difficult **44 / 0** against **42 / 2**, Backbreaking **12 / 0**
-  against **9 / 0**, and §10.4's `16 / 32 / 102` with 1 survivor now reads `16 / 31 / 102` with 3.
+  against **9 / 0**, and §10.4's `16 / 32 / 102` with 1 survivor now reads `16 / 31 / 102` with 3. The
+  README's difficulty table (its "How hard is the city" section) carries the same `193 / 7`, `102 / 1`,
+  `42 / 2`, `9 / 0` and is stale for the same reason.
 
 Nothing fails, because every assertion downstream is an inequality; only the prose rots. Re-measure and
 update the tables and the two step figures — or stop quoting absolutes the engine can move — before the
@@ -48,21 +50,23 @@ trust margin every turn and reports when the floor becomes each run's clock, in 
 the runs do, and the roster panel shows the distance to the floor in points and in nights with the run's
 margin drawn against the floor line. So the playtest is `npm start`, pick Easy, play it to the end with the
 Heroes panel open, then do the same on Backbreaking, and report where each one felt like it was pulling —
-too early, too late, or not at all — against these measured baselines:
+too early, too late, or not at all — against these measured baselines (the harness prints the same
+numbers on every run, so re-read them rather than trusting this table):
 
 | | The floor becomes the run's clock at | Warning | Never committed to it |
 | --- | --- | --- | --- |
-| Easy | turn 223 (n=9 of 200) | 1 turn, 1% of the run | 191/200 |
-| Average | turn 44 (n=137) | 2 turns, 4% of the run | 63/200 |
-| Backbreaking | turn 0 (n=200) | 5 turns, 100% of the run | 0/200 |
+| Easy | turn 273 (n=3 of 200) | 0 turns, 0% of the run | 197/200 |
+| Average | turn 39 (n=113) | 2 turns, 5% of the run | 87/200 |
+| Difficult | turn 7 (n=172) | 4 turns, 24% of the run | 28/200 |
+| Backbreaking | turn 0 (n=197) | 3 turns, 75% of the run | 3/200 |
 
 The specific thing to check is whether the floor is *perceptible* at all before it is fatal, which the
-numbers say it mostly is not: on Easy 191 runs out of 200 never enter the margin, and on Average the median
+numbers say it mostly is not: on Easy 197 runs out of 200 never commit to it, and on Average the median
 run gets two turns. Whether that reads as a run that ended unfairly or as a run that ended, is the answer
 the next balance pass needs and the harness cannot give it.
 
 Widening the warning band to two nights of movement did not change any of this — the warning is still
-1 / 2 / 4 / 5 turns, and the other widths are priced in DESIGN.md §10.5 — so the shortness is not something
+0 / 2 / 4 / 3 turns, and the other widths are priced in DESIGN.md §10.5 — so the shortness is not something
 the display can reach. It is a fact about `trustFloorPerHero`, and that is the half only a person can
 judge.
 
@@ -176,7 +180,8 @@ night clear of the strongest hunt in the game (`1.4 × 30 × 0.95` = 39.9) by a 
 returned boss was one hunt from zero and the non-lethal branch was free. 45 is the smallest round figure
 that survives the worst case, and it is still ten under `BOSS_THRESHOLD`.
 
-The resistance steps are `BOSS_RESISTANCE_STEP` 0.9 and `BOSS_HUNT_RESISTANCE_STEP` 0.97, applied per
+The resistance steps are `BOSS_RESISTANCE_STEP` 0.89 (0.9 when this note was written; it moved in
+`a773092`, see the drift item at the top) and `BOSS_HUNT_RESISTANCE_STEP` 0.97, applied per
 escape and shared with `bossGrowth` through `bossEscapes` so the two cannot drift apart. The asymmetry is
 not leniency: mopping up was already nearly pointless, so a steep step there costs nothing real and by the
 sixth escape the expected progress per night goes positive — tidying up after a fully-escalated boss is
