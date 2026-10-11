@@ -1,5 +1,15 @@
 # Working in this repo
 
+## Check in before acting
+
+The owner wants heavy input into the design. Run proposed actions and design decisions by them first,
+and prefer asking over assuming:
+
+- Before starting non-trivial work, state the plan and wait for a go-ahead.
+- Before changing content that shapes the feel of the game (names, flavour text, balance numbers,
+  mechanics), propose options and let the owner pick.
+- Do not run off and make a batch of changes. Small, confirmed steps beat large unilateral ones.
+
 ## Always finish by committing and pushing
 
 When a task is done, commit it and push it. No waiting to be asked.
