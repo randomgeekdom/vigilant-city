@@ -6,14 +6,26 @@ Remove an item when it is done. If the work uncovers something new, add it here.
 Ordered roughly by value per unit of effort. Each item says where it comes from, so nobody has to
 re-derive it.
 
-## Make a `/run` skill that starts the app
+## The design has drifted from the engine twice, and nothing failed
 
-Skills live under `.opencode/skill/` (see the `customize-opencode` skill for the format), and there is
-one for editing opencode's own config but none for the thing this repo actually is: a playable game.
-`npm start` is the only way to reach the part of the design the harness cannot measure — the second item
-on this list is blocked on a human being able to launch a city quickly enough to play it. A `/run` skill
-should launch the app (Electron window via `npm start`) and say what to look at while playing, so
-playtesting is one command away rather than something you have to remember the shape of.
+Uncovered while writing the `/run` play guide, and it dates the whole document. `DESIGN.md` was last
+edited at `23d5135`, and two engine commits landed after it without touching it, each moving a number the
+prose quotes:
+
+- `a773092` changed `BOSS_RESISTANCE_STEP` from 0.9 to 0.89 (the comment beside it argues why), but
+  DESIGN.md §10.3 still says "**x0.9** on work mopped up at the scene" and the README's "Bosses" section
+  still says "(x0.9 per escape)".
+- `1445f15` made villains roll names from the civilian pool, which changes how many draws the session RNG
+  makes and so shifts every roll after a name. The §10.4/§10.5 sweep is a fixed 200-seed sweep, and it
+  moved: the harness now prints Easy focus **189 turns / 15 survivors** against **193 / 7** in §10.5,
+  Average **102 / 3** against **102 / 1**, Difficult **44 / 0** against **42 / 2**, Backbreaking **12 / 0**
+  against **9 / 0**, and §10.4's `16 / 32 / 102` with 1 survivor now reads `16 / 31 / 102` with 3.
+
+Nothing fails, because every assertion downstream is an inequality; only the prose rots. Re-measure and
+update the tables and the two step figures — or stop quoting absolutes the engine can move — before the
+next item on this list is played against baselines that no longer exist: its table (Easy turn 223, Average
+44, Backbreaking 0) is from the same pre-drift measurement as the harness's current Easy turn 273 (n=3),
+Average 39 (n=113), Backbreaking 0 (n=197).
 
 ## The trust floor and the difficulty ladder have still never met a human
 
