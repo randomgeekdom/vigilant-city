@@ -1,10 +1,9 @@
 import './rng-bridge';
 import { startSeeded, stopSeeded } from './rng-bridge';
 import { Random } from '../core/Random';
-import { NameRoller, NameGenerator, Gender } from '@randomgeekdom/rollbard';
+import { NameRoller, Gender } from '@randomgeekdom/rollbard';
 
 const civilianNames = NameRoller.Get();
-const fantasyNames = NameGenerator.Get();
 
 export type Sex = 'female' | 'male';
 
@@ -37,7 +36,7 @@ export function rollAnyCivilianName(rng: Random): string {
   return rollCivilianName(rng, rng.next() < 0.5 ? 'female' : 'male');
 }
 
-/** Villains get a stranger register than the city's respectable citizens. */
+/** Villains are people from the same city as everyone else, so they roll from the same real-name pool. */
 export function rollVillainName(rng: Random): string {
-  return withRollbard(rng, () => fantasyNames.GenerateName(genderFor(rng.next() < 0.5 ? 'female' : 'male')));
+  return rollAnyCivilianName(rng);
 }
