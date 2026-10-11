@@ -487,19 +487,29 @@ console.log('a boss gets harder every time it gets away');
   // read only the power that grew them into a boss, so a boss holding six took
   // exactly the same effort to move as one holding two, and the growth the list
   // was bolted onto capped out at two escapes and stayed there.
-  const { session } = GameSession.newGame({
-    realName: 'Escalation Test',
-    alias: 'Escalation Test',
-    powerSet: 'Telekinesis',
-    origin: 'alien',
-    seed: 8123 * 2,
-  });
-  for (let turn = 0; turn < 300 && !session.isOver && !session.villains.some((v) => v.boss !== null); turn += 1) {
-    session.patrol();
+  // A single pinned seed is a check on the rng, not on the mechanic. This used
+  // to be seed 8123 * 2, and it stopped reaching a boss the moment an unrelated
+  // change to how names are rolled moved the stream — that run now ends on trust
+  // at influence 54, one short of the threshold, with nothing about bosses having
+  // changed. Sweep for a run that produces one, the way the boss-cap block above
+  // already sweeps, so the walk below runs against a boss the design really makes
+  // rather than against whichever seed happens to still work.
+  let found: VillainData | null = null;
+  for (let seed = 1; seed <= 50 && !found; seed += 1) {
+    const { session } = GameSession.newGame({
+      realName: 'Escalation Test',
+      alias: 'Escalation Test',
+      powerSet: 'Telekinesis',
+      origin: 'alien',
+      seed: seed * 8123,
+    });
+    for (let turn = 0; turn < 300 && !session.isOver && !session.villains.some((v) => v.boss !== null); turn += 1) {
+      session.patrol();
+    }
+    found = session.villains.find((v) => v.boss !== null) ?? null;
   }
-  const found = session.villains.find((v) => v.boss !== null);
   if (!found) {
-    check('a boss to escalate', false, 'no boss in 300 neglected turns');
+    check('a boss to escalate', false, 'no boss in 300 neglected turns over 50 seeds');
   } else {
     // The powers array is the only record of how often they got away, so the
     // walk is built by handing them every power they do not already hold — the
@@ -536,6 +546,20 @@ console.log('a boss gets harder every time it gets away');
     const hunted = walked.map((v) => perAttempt(v, true));
     const growth = walked.map((v) => bossGrowth(v));
 
+    // The end-of-list claim is about the whole class of bosses, not the one the
+    // sweep happened to grow, so it is checked against every power on the list
+    // the way the block above checks its own mop-up claim. Pinned to the found
+    // boss it is a check on the rng: the sweep lands on a different power as the
+    // stream moves, and the claim is decided by the toughest resistance on the
+    // list, not the friendliest boss that turned up. Eight powers is six escapes
+    // — the end of the walk printed above, and everything the list has to give.
+    const atFullEscalation = (power: BossPower): VillainData => ({
+      ...found,
+      boss: power,
+      powers: Array.from({ length: 8 }, () => ({ powerSet: power, origin: 'genetic' as const })),
+    });
+    const endMop = BOSS_POWERS.map((power) => perAttempt(atFullEscalation(power), false));
+
     console.log(
       `  info ${found.alias} across ${walked.length - 1} escapes: ` +
         walked
@@ -551,8 +575,8 @@ console.log('a boss gets harder every time it gets away');
     check('hunting a boss gets worse every escape too', worsens(hunted), hunted.map((x) => x.toFixed(1)).join(' > '));
     check(
       'by the end of the list, mopping up after a boss is not a route at all',
-      mopped[mopped.length - 1]! >= 0,
-      `${mopped[mopped.length - 1]!.toFixed(1)} per attempt, a miss still costs ${INFLUENCE_ON_FAILURE}`,
+      endMop.every((m) => m >= 0),
+      BOSS_POWERS.map((p, i) => `${p} ${endMop[i]!.toFixed(1)}`).join(', '),
     );
     check(
       'hunting is still the answer on a boss who has been let go six times',
@@ -993,7 +1017,7 @@ function warningShape(traces: readonly TrustSample[][], nights: number): Warning
   let neverCommitted = 0;
   const committed: number[] = [];
   const warning: number[] = [];
-  const warningShare: number[] = [];
+  const ends: number[] = [];
   for (const trace of traces) {
     if (!trace.some((sample) => sample.margin < trustWarningBand(sample.roster, nights))) neverFelt += 1;
     const committedAt = committedTurn(trace, nights);
@@ -1004,12 +1028,18 @@ function warningShape(traces: readonly TrustSample[][], nights: number): Warning
     const end = trace[trace.length - 1]!.turn;
     committed.push(committedAt);
     warning.push(end - committedAt);
-    warningShare.push((end - committedAt) / Math.max(1, end));
+    ends.push(end);
   }
+  // Warning as a fraction of the run, read as a ratio of medians rather than a
+  // median of per-run ratios. A run that commits on its last turn contributes a
+  // zero to the latter, and enough of them drag the median to zero while the
+  // median warning in turns is still two — the metric flipped on the sample, not
+  // on the game. The two halves are the numbers printed above anyway, so this is
+  // their ratio and not a third measurement.
   return {
     committed: median(committed),
     warning: median(warning),
-    warningShare: median(warningShare),
+    warningShare: median(warning) / Math.max(1, median(ends)),
     neverFelt,
     neverCommitted,
   };

@@ -212,8 +212,16 @@ export const MAX_ESCAPE_GROWTH = 2;
  * so the one thing that keeps working is the one the player already has to pay a
  * full night for. Gentleness on the hunt side is not leniency, it is the reason
  * a boss is a threat rather than a wall.
+ *
+ * 0.89 rather than 0.9 because it is the smallest step at which "no route at
+ * all" is literally true for the toughest boss. Telekinesis carries the highest
+ * base resistance, x0.65, and a backed villain is thirty points of knockback, so
+ * six escapes leave a mop worth `30 x 0.65 x 0.89^6 = 9.7` against the ten where
+ * a mop stops losing ground. At 0.9 the same walk lands at 10.4 and cleaning up
+ * after the worst boss is still, barely, a route — the margin is small but it is
+ * the whole claim.
  */
-export const BOSS_RESISTANCE_STEP = 0.9;
+export const BOSS_RESISTANCE_STEP = 0.89;
 export const BOSS_HUNT_RESISTANCE_STEP = 0.97;
 
 export function activeBosses(villains: readonly VillainData[]): VillainData[] {
