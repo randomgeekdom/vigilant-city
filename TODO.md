@@ -142,6 +142,45 @@ and make the failure visible — distinguish "corrupt" from "too old" in the UI 
 migration to write here, only the distinction to make: a save the game cannot read is a fact the player
 is entitled to.
 
+## The window still wears the default Electron icon
+
+Noted while playing. `createWindow` in `electron/main.js` passes no `icon` to
+`BrowserWindow`, so the window and the taskbar show Electron's default. Add an
+icon file to the repo and pass it to `BrowserWindow`. There is no packager
+configuration yet, so the icon will have to be wired into that as well when
+packaging exists.
+
+## Card abbreviations are four mixed-case letters, not three caps
+
+Noted while playing. The incident card abbreviates each approach by slicing the
+label to four characters (the `incident-mods` chips in `src/ui/components/CityView.tsx`):
+Diplomatic -> `Dipl`, Lethal -> `Leth`, Stealthy -> `Stel`, Swift -> `Swif`,
+Tactical -> `Tact`. The owner wants three letters, all caps: `DIP`, `LET`, `STE`,
+`SWI`, `TAC` — `label.slice(0, 3).toUpperCase()`. Display-only; the engine
+never sees the abbreviation.
+
+## Where do location names come from? A hardcoded list of nine
+
+Noted while playing. Every incident's location is `DISTRICTS` in
+`src/engine/data/districts.ts` — Arts District, Blue Coast, College Park,
+Downtown, Green Hills, Medical District, Midtown, Old Town, Riverside — nine
+names chosen by hand, and the only source in the game. (Hunt stand-ins borrow
+the first open incident's district instead of rolling one.) The list needs to be
+better: longer, or drawn from something. Decide what the list is *for* before
+expanding it — a bigger pool means a given district recurs less often, which
+changes how much the "where" of an incident carries.
+
+## A preplanned event, repeated
+
+Noted while playing. The engine has no city-event system: the only "events" are
+`IdentityEvent`s (identity drama), and the note at the end of DESIGN.md records
+that the v0.1 director's 18 events were dropped in the port. The ask is an event
+that is planned ahead and happens again — scheduled, recurring, presumably
+city-scale. Open questions for the design pass: what it does, how often it
+repeats, and where it hooks into the turn loop in `core/GameSession.ts`. Per the
+engine invariants, every roll it makes must go through the session RNG so a
+restored save continues the same stream.
+
 ## Note: why the 30 also cost the trust floor its warning
 
 `knockback()` used to return `INFLUENCE_ON_SUCCESS - BACKED_PENALTY`, so a backed villain lost 40
