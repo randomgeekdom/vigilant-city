@@ -69,10 +69,10 @@ inattention and how much debt the city will carry — and nothing else:
 
 | | Unattended growth | Trust floor per guardian | Focus strategy, mean run |
 | --- | --- | --- | --- |
-| Easy | +4 | −6 | 193 turns, 7/200 survived |
-| Average | +5 | −3 | 102 turns, 1/200 survived |
-| Difficult | +6 | −2 | 42 turns, 2/200 survived |
-| Backbreaking | +8 | −1 | 9 turns, 0/200 survived |
+| Easy | +4 | −6 | 189 turns, 15/200 survived |
+| Average | +5 | −3 | 102 turns, 3/200 survived |
+| Difficult | +6 | −2 | 44 turns, 0/200 survived |
+| Backbreaking | +8 | −1 | 12 turns, 0/200 survived |
 
 A harder city is **not** a city that decays — there is still no tide, and every point a villain gains is
 a point they gained because you were somewhere else. It also does not make the individual incidents
@@ -93,7 +93,7 @@ That split is the mechanic: **cleaning up after a boss is a dead end and going a
 answer.** They grow faster, seed more of their own work, and there are at most two at once.
 
 Every power they pick up by getting away takes another bite out of both multipliers — steeply at the
-scene (×0.9 per escape), gently in a hunt (×0.97) — so the power list the player is shown as their
+scene (×0.89 per escape), gently in a hunt (×0.97) — so the power list the player is shown as their
 escalation record is a real number. By the sixth escape, cleaning up after them is not a slower route to
 the same place, it is no route at all, and hunting is what is left.
 
@@ -116,8 +116,8 @@ When one reaches zero you are choosing between the two available answers, and bo
 Permanent and expensive, or cheaper and repeating.
 
 The playtest measures three strategies over 200 seeds on the Average city: never intervening averages
-16 turns, attending random incidents averages 32, and **focusing on whoever is closest to winning
-averages 102 with 1 survivor**. Aimless heroics is barely better than doing nothing.
+16 turns, attending random incidents averages 31, and **focusing on whoever is closest to winning
+averages 102 with 3 survivors**. Aimless heroics is barely better than doing nothing.
 
 ## Systems
 

@@ -6,28 +6,14 @@ Remove an item when it is done. If the work uncovers something new, add it here.
 Ordered roughly by value per unit of effort. Each item says where it comes from, so nobody has to
 re-derive it.
 
-## The design has drifted from the engine twice, and nothing failed
+## The design quotes numbers the harness will not print
 
-Uncovered while writing the `/run` play guide, and it dates the whole document. `DESIGN.md` was last
-edited at `23d5135`, and two engine commits landed after it without touching it, each moving a number the
-prose quotes:
-
-- `a773092` changed `BOSS_RESISTANCE_STEP` from 0.9 to 0.89 (the comment beside it argues why), but
-  DESIGN.md §10.3 still says "**x0.9** on work mopped up at the scene" and the README's "Bosses" section
-  still says "(x0.9 per escape)".
-- `1445f15` made villains roll names from the civilian pool, which changes how many draws the session RNG
-  makes and so shifts every roll after a name. The §10.4/§10.5 sweep is a fixed 200-seed sweep, and it
-  moved: the harness now prints Easy focus **189 turns / 15 survivors** against **193 / 7** in §10.5,
-  Average **102 / 3** against **102 / 1**, Difficult **44 / 0** against **42 / 2**, Backbreaking **12 / 0**
-  against **9 / 0**, and §10.4's `16 / 32 / 102` with 1 survivor now reads `16 / 31 / 102` with 3. The
-  README's difficulty table (its "How hard is the city" section) carries the same `193 / 7`, `102 / 1`,
-  `42 / 2`, `9 / 0` and is stale for the same reason.
-
-Nothing fails, because every assertion downstream is an inequality; only the prose rots. Re-measure and
-update the tables and the two step figures — or stop quoting absolutes the engine can move — before the
-next item on this list is played against baselines that no longer exist: its table (Easy turn 223, Average
-44, Backbreaking 0) is from the same pre-drift measurement as the harness's current Easy turn 273 (n=3),
-Average 39 (n=113), Backbreaking 0 (n=197).
+The refresh of the drifted design numbers surfaced two shapes of rot the re-measure did not reach. The
+boss example in DESIGN.md §10.3 is quoted by identity — "Flying Chloe, at ×0.65 and ×0.8" — and the sweep
+produces a new one whenever the name pool moves, so the quote is a snapshot wearing a proverb. The end-of-run
+trust medians in DESIGN.md §11.1 are quoted and not printed, so they cannot be re-measured without a
+harness change. Both are the same disease as the drift item that was just closed: only the prose rots,
+because the assertions are inequalities and the quotes are prose.
 
 ## The trust floor and the difficulty ladder have still never met a human
 
